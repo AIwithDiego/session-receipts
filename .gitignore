@@ -1,0 +1,8 @@
+tickets.md
+__pycache__/
+*.pyc
+.DS_Store
+out/
+demo/
+CLAUDE.md
+docs/reviews/

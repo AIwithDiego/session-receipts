@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Session receipts</title>
+<style>
+:root{
+  --bg:#f4f3ef; --surface:#fcfcfb; --paper:#fffefa; --line:#e3e1da; --line-strong:#cfccc2;
+  --ink:#0b0b0b; --ink-2:#52514e; --ink-3:#7a7873; --accent:#2a78d6; --accent-soft:#e6f0fb;
+  --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace; --sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;
+  --radius:10px; color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121211; --surface:#1a1a19; --paper:#20201e; --line:#2c2c2a; --line-strong:#3a3a37;
+  --ink:#f0efec; --ink-2:#c3c2b7; --ink-3:#8f8e86; --accent:#3987e5; --accent-soft:#1d2a3b; color-scheme:dark;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:1240px;margin:0 auto;padding:28px 16px 80px}
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+h1{font-size:26px;letter-spacing:-.02em;margin:0;font-weight:700}
+h1 span{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--ink-3);letter-spacing:0;margin-left:10px;vertical-align:middle}
+.sub{color:var(--ink-3);font-size:12.5px;margin-top:4px}
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0;margin-bottom:8px;border-bottom:1px solid var(--line)}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{border:0;background:none;padding:5px 12px;border-radius:999px;cursor:pointer;color:var(--ink-2);font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);cursor:pointer;user-select:none}
+.search{flex:1;min-width:180px;max-width:320px;margin-left:auto}
+.search input{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;outline:none}
+.search input:focus{border-color:var(--accent)}
+.tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:14px 0}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px}
+.tile .k{font-size:12px;color:var(--ink-3)}
+.tile .v{font-size:24px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:2px}
+.tile .x{font-size:11.5px;color:var(--ink-3);margin-top:2px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px;min-width:0}
+.card h2{font-size:14px;margin:0 0 2px;font-weight:650}
+.card .hint{font-size:12px;color:var(--ink-3);margin:0 0 12px}
+.cardhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.linkbtn{border:0;background:none;color:var(--accent);cursor:pointer;font-size:12.5px;padding:0}
+.grid2{display:grid;grid-template-columns:1.15fr .85fr;gap:12px}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:190px;overflow:visible}
+.chart .axis{fill:var(--ink-3);font-size:10.5px;font-family:var(--mono)}
+.chart .gridl{stroke:var(--line);stroke-width:1}
+.chart .bar{fill:var(--accent)}
+.chart .hit{fill:transparent;cursor:pointer}
+.chart .hit:hover+.bar,.chart g.on .bar{fill:color-mix(in srgb,var(--accent) 75%,var(--surface))}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--surface);border-radius:8px;padding:7px 10px;font-size:12px;white-space:nowrap;transform:translate(-50%,-100%);margin-top:-8px;opacity:0;transition:opacity .1s}
+.tip b{font-size:14px;display:block;font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:500;color:var(--ink-3);font-size:12px;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--accent-soft)}
+.mono{font-family:var(--mono);font-size:12px}
+.muted{color:var(--ink-3)}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:1px 8px 1px 6px;border-radius:999px;border:1px solid var(--line-strong);color:var(--ink-2);white-space:nowrap;margin:1px 3px 1px 0}
+.badge i{width:8px;height:8px;border-radius:2px;display:inline-block;flex:none}
+.badge.critical i{background:var(--critical);clip-path:polygon(50% 0,100% 100%,0 100%);border-radius:0;width:10px;height:9px}
+.badge.serious i{background:var(--serious);border-radius:50%}
+.badge.warning i{background:var(--warning);transform:rotate(45deg) scale(.85)}
+.badge.tool{border-color:transparent;background:var(--bg);font-family:var(--mono);font-size:11px}
+.feed{list-style:none;margin:0;padding:0;max-height:360px;overflow:auto}
+.feed li{padding:8px 4px;border-bottom:1px solid var(--line);cursor:pointer;display:grid;grid-template-columns:92px 1fr;gap:8px}
+.feed li:hover{background:var(--accent-soft)}
+.feed .when{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);padding-top:2px}
+.feed .what{min-width:0}
+.feed .proj{font-weight:600;font-size:13px}
+.day{margin-top:18px}
+.day h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin:0 0 6px;font-weight:600;display:flex;justify-content:space-between}
+.srow{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer}
+.srow:hover{border-color:var(--accent)}
+.srow .t{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
+.srow .p{font-weight:600}
+.srow .a{color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.srow .meta{display:flex;gap:12px;font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap;justify-content:flex-end}
+.srow.group{background:transparent;border-style:dashed}
+.srow .mid{min-width:0}
+.more{display:block;margin:10px auto;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 16px;cursor:pointer}
+.empty{color:var(--ink-3);padding:20px 0;text-align:center}
+/* receipt drawer */
+dialog{border:0;padding:0;margin:0 0 0 auto;height:100vh;max-height:100vh;width:min(720px,100vw);max-width:100vw;background:transparent;color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+.receipt{background:var(--paper);height:100%;overflow:auto;padding:26px 28px 60px;border-left:1px solid var(--line-strong);font-size:13.5px}
+.receipt .close{position:sticky;top:0;float:right;border:1px solid var(--line);background:var(--paper);border-radius:999px;width:32px;height:32px;cursor:pointer;font-size:16px;line-height:1}
+.receipt h2{font-size:21px;margin:0 0 4px;letter-spacing:-.01em}
+.receipt .head{border-bottom:2px dashed var(--line-strong);padding-bottom:14px;margin-bottom:6px}
+.receipt section{padding:14px 0;border-bottom:1px dashed var(--line-strong)}
+.receipt section h4{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);margin:0 0 8px;font-weight:600}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:3px 12px;font-size:12.5px}
+.kv dt{color:var(--ink-3)} .kv dd{margin:0;word-break:break-all;font-family:var(--mono);font-size:12px}
+.prompt{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-bottom:6px;white-space:pre-wrap;word-break:break-word;max-height:180px;overflow:auto}
+.ref{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);user-select:all;word-break:break-all}
+.line{display:grid;grid-template-columns:52px 1fr;gap:10px;padding:4px 0;font-size:12.5px;border-bottom:1px dotted var(--line)}
+.line:last-child{border-bottom:0}
+.line .tm{font-family:var(--mono);font-size:11px;color:var(--ink-3);padding-top:1px}
+.line code{font-family:var(--mono);font-size:12px;word-break:break-all;white-space:pre-wrap}
+.line .err{color:var(--critical);font-size:12px;margin-top:2px;white-space:pre-wrap;word-break:break-word}
+.k-command::before,.k-edit::before,.k-read::before,.k-search::before,.k-web::before,.k-agent::before,.k-tool::before{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-right:6px}
+.k-command::before{content:"$"} .k-edit::before{content:"edit"} .k-read::before{content:"read"} .k-search::before{content:"find"} .k-web::before{content:"web"} .k-agent::before{content:"agent"} .k-tool::before{content:"tool"}
+.tok{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tok div{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.tok b{display:block;font-size:16px;font-variant-numeric:tabular-nums}
+.tok span{font-size:11.5px;color:var(--ink-3)}
+.total{display:flex;justify-content:space-between;font-family:var(--mono);font-size:15px;font-weight:700;padding-top:12px}
+.recs{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.rec{border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--bg);display:flex;flex-direction:column;gap:6px;min-width:0}
+.rec .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);display:flex;align-items:center;gap:6px}
+.rec .tag i{width:8px;height:8px;border-radius:50%;background:var(--ink-3)}
+.rec.save .tag i{background:var(--accent)} .rec.risk .tag i{background:var(--critical);border-radius:0;clip-path:polygon(50% 0,100% 100%,0 100%);width:10px;height:9px} .rec.fix .tag i{background:var(--warning);transform:rotate(45deg) scale(.85);border-radius:0}
+.rec h3{margin:0;font-size:14.5px;line-height:1.35;font-weight:650}
+.rec p{margin:0;color:var(--ink-2);font-size:13px}
+.rec .do{color:var(--ink);font-size:13px}
+.rec .do b{font-weight:600}
+.rec .ev{margin-top:auto;padding-top:4px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.rec code{font-family:var(--mono);font-size:11.5px;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:0 4px;word-break:break-all}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--ink);border-radius:999px;padding:3px 6px 3px 12px;font-size:12.5px}
+.chip button{border:0;background:var(--surface);border-radius:999px;width:20px;height:20px;cursor:pointer}
+details summary{cursor:pointer;color:var(--accent);font-size:12.5px;margin:4px 0}
+.ok{color:var(--good)}
+.rulerow td:first-child{min-width:260px}
+.rulecheck{font-family:var(--mono);font-size:11px;color:var(--ink-3);word-break:break-all}
+.rule{padding:8px 0;border-bottom:1px dotted var(--line)}
+.rule:last-child{border-bottom:0}
+.rule .rt{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.rule .rt b{font-weight:600}
+.rule .hit{margin:6px 0 0 4px;font-size:12.5px}
+.rule .hit code{font-family:var(--mono);font-size:11.5px;word-break:break-all}
+.badge.good i{background:var(--good);border-radius:50%}
+@media (max-width:900px){.tiles{grid-template-columns:repeat(3,1fr)}.grid2,.recs{grid-template-columns:1fr}}
+@media (max-width:560px){.tiles{grid-template-columns:repeat(2,1fr)}.srow{grid-template-columns:1fr}.srow .meta{justify-content:flex-start;flex-wrap:wrap}.search{max-width:none;margin-left:0}.receipt{padding:20px 16px 60px}.kv{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Session receipts <span id="built"></span></h1>
+      <div class="sub">What your agents did, from the logs Claude Code and Codex keep on this Mac. Nothing leaves it. Secrets are redacted.</div>
+    </div>
+  </header>
+
+  <div class="controls" role="toolbar" aria-label="Filters">
+    <div class="seg" id="period" aria-label="Period">
+      <button data-v="1">Today</button><button data-v="7">7 days</button><button data-v="30">30 days</button><button data-v="all">All</button>
+    </div>
+    <div class="seg" id="tool" aria-label="Tool">
+      <button data-v="all">All tools</button><button data-v="claude-code">Claude Code</button><button data-v="codex">Codex</button>
+    </div>
+    <label class="toggle"><input type="checkbox" id="sched" checked> Scheduled runs</label>
+    <label class="search"><input id="q" type="search" placeholder="Search projects, prompts, risks" aria-label="Search sessions"></label>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="card" id="recscard">
+    <h2>Recommendations</h2>
+    <p class="hint">Worked out from all your sessions in this period and tool; search and the scheduled-runs toggle don't change them. Shares are of your usage, not of your plan's limit, and weigh each kind of token by its relative cost (re-reading context is cheap, writing output is not).</p>
+    <div class="recs" id="recs"></div>
+  </div>
+
+  <div class="card" id="rulescard">
+    <h2>Rules</h2><p class="hint" id="ruleshint"></p>
+    <div style="overflow-x:auto"><table id="rules"></table></div>
+  </div>
+
+  <div class="card">
+    <div class="cardhead"><div><h2 id="charttitle">Tokens per day</h2><p class="hint" id="charthint"></p></div>
+      <button class="linkbtn" id="tabletoggle">Show as table</button></div>
+    <div class="chart" id="chart"></div>
+    <div id="charttable" hidden></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>Risky moments</h2><p class="hint">Critical and serious only: blocked actions, pushes to main, destructive commands, secret files. Click for the receipt.</p>
+      <ul class="feed" id="feed"></ul>
+    </div>
+    <div class="card">
+      <h2>Projects</h2><p class="hint">Where the work went, by share of usage in this period.</p>
+      <div style="max-height:360px;overflow:auto"><table id="projects"></table></div>
+    </div>
+  </div>
+
+  <div class="card" style="background:transparent;border:0;padding:0">
+    <h2 style="margin-top:8px">Sessions <span id="idchip"></span></h2>
+    <div id="sessions"></div>
+  </div>
+</div>
+
+<dialog id="dlg" aria-label="Session receipt"><div class="receipt" id="receipt"></div></dialog>
+
+<script src="data.js"></script>
+<script>
+"use strict";
+let D = window.RECEIPTS;
+const $ = s => document.querySelector(s);
+// Every log string goes in as text, never as HTML.
+function h(tag, attrs, ...kids){
+  const el = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs||{})){
+    if (v == null || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat(Infinity)){ if (k == null || k === false) continue; el.append(k instanceof Node ? k : document.createTextNode(String(k))); }
+  return el;
+}
+const fmt = n => n.toLocaleString("en-IE");
+const short = n => n >= 1e9 ? (n/1e9).toFixed(n>=1e10?0:1)+"B" : n >= 1e6 ? (n/1e6).toFixed(n>=1e7?0:1)+"M" : n >= 1e3 ? Math.round(n/1e3)+"K" : String(n);
+const time = iso => iso ? new Date(iso).toLocaleTimeString("en-IE",{hour:"2-digit",minute:"2-digit"}) : "";
+const dayName = d => new Date(d+"T12:00:00").toLocaleDateString("en-IE",{weekday:"short",day:"numeric",month:"short"});
+const toolName = t => t === "codex" ? "Codex" : "Claude Code";
+const LEVEL = {critical:"Critical", serious:"Serious", warning:"Warning"};
+const localDay = dt => { const z = n => String(n).padStart(2,"0"); return `${dt.getFullYear()}-${z(dt.getMonth()+1)}-${z(dt.getDate())}`; };
+
+let S = {period:"7", tool:"all", sched:true, q:"", table:false, shown:40, ids:null, idsLabel:""};
+try { Object.assign(S, JSON.parse(localStorage.getItem("receipts-ui")||"{}"), {q:"", shown:40, ids:null}); } catch(e){}
+const save = () => { try { localStorage.setItem("receipts-ui", JSON.stringify({period:S.period,tool:S.tool,sched:S.sched})); } catch(e){} };
+
+function stamp(){
+$("#built").textContent = (D.live ? "live · updated " : "built ") + new Date(D.built).toLocaleString("en-IE",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}) + (()=>{ const n = D.sessions.filter(s=>s.archived).length; return n ? ` · ${n.toLocaleString("en-IE")} from the archive` : ""; })();
+}
+
+function filtered(whole){
+  const today = localDay(new Date());
+  let from = "";
+  if (S.period !== "all"){ const d = new Date(); d.setDate(d.getDate() - (Number(S.period) - 1)); from = localDay(d); }
+  const q = S.q.trim().toLowerCase();
+  return D.sessions.filter(s =>
+    (!from || (s.day >= from && s.day <= today)) &&
+    (S.tool === "all" || s.tool === S.tool) &&
+    (whole || S.sched || !s.repeat) &&
+    (whole || !q || [s.project, s.ask, s.title, ...s.riskLabels].join(" ").toLowerCase().includes(q))
+  );
+}
+
+function render(){
+  for (const [id,key] of [["#period","period"],["#tool","tool"]])
+    for (const b of document.querySelectorAll(id+" button")) b.setAttribute("aria-pressed", String(b.dataset.v === S[key]));
+  $("#sched").checked = S.sched;
+  // Shares are always out of everything in the period and tool, so a search can't turn 40% into 100%.
+  const rows = filtered(), whole = filtered(true);
+  tiles(rows); recs(whole); rulesPanel(whole); chart(rows); feed(rows); projects(whole);
+  const list = S.ids ? rows.filter(s => S.ids.has(s.id)) : rows;
+  $("#idchip").replaceChildren(S.ids ? h("span",{class:"chip"}, `${S.idsLabel} · ${list.length}`, h("button",{"aria-label":"Clear", onclick:()=>{ S.ids=null; render(); }},"×")) : "");
+  sessions(list);
+}
+
+function tiles(rows){
+  const sum = k => rows.reduce((a,s)=>a+s[k],0);
+  const sched = rows.filter(s=>s.repeat);
+  const schedTok = sched.reduce((a,s)=>a+s.tokens,0);
+  const risky = rows.filter(s=>s.risk.critical).length;
+  const T = [
+    ["Sessions", fmt(rows.length), `${fmt(sched.length)} scheduled · ${Math.round(100*rows.filter(s=>s.checksOff).length/Math.max(1,rows.length))}% without permission checks`],
+    ["Prompts", fmt(sum("prompts")), `${fmt(sum("actions"))} actions`],
+    ["Commands", fmt(sum("commands")), `${fmt(sum("failed"))} failed`],
+    ["Files changed", fmt(sum("edits")), `across ${new Set(rows.filter(s=>s.edits).map(s=>s.project)).size} projects`],
+    ["Blocked", fmt(sum("blocked")), `${fmt(risky)} sessions with a critical`],
+    ["Tokens", short(sum("tokens")), schedTok ? `${Math.round(100*schedTok/Math.max(1,sum("tokens")))}% from scheduled runs` : "incl. cache reads"],
+  ];
+  $("#tiles").replaceChildren(...T.map(([k,v,x]) => h("div",{class:"tile"}, h("div",{class:"k"},k), h("div",{class:"v"},v), h("div",{class:"x"},x))));
+}
+
+const pct = x => x >= .1 ? Math.round(x*100)+"%" : x >= .01 ? (x*100).toFixed(1)+"%" : "<1%";
+const label = p => p === "~" ? "Home folder" : p.split("/").pop();
+function showSessions(ids, lbl){ S.ids = new Set(ids); S.idsLabel = lbl; S.shown = 400; render(); $("#sessions").scrollIntoView({behavior:"smooth"}); }
+
+function recs(rows){
+  const out = [];
+  const totalW = rows.reduce((a,s)=>a+s.w,0);
+  if (rows.length < 3 || !totalW){ $("#recscard").hidden = true; return; }
+  $("#recscard").hidden = false;
+  const by = (arr, key) => { const m = new Map(); for (const x of arr){ const k = key(x); if (!m.has(k)) m.set(k,[]); m.get(k).push(x); } return m; };
+  const share = list => list.reduce((a,s)=>a+s.w,0) / totalW;
+
+  // SAVE: scheduled runs
+  for (const [, runs] of by(rows.filter(s=>s.repeat), s=>s.repeat)){
+    const sh = share(runs); if (sh < .05 || runs.length < 5) continue;
+    const starts = runs.map(s=>new Date(s.start).getTime()).sort((a,b)=>a-b);
+    const gaps = starts.slice(1).map((t,i)=>(t-starts[i])/60000).filter(g=>g>0).sort((a,b)=>a-b);
+    const every = gaps.length ? Math.max(1, Math.round(gaps[Math.floor(gaps.length/2)])) : 0;
+    const p = runs[0].project;
+    const at30 = every && every < 30 ? sh * every / 30 : 0;
+    out.push({type:"save", impact:sh, ids:runs.map(s=>s.id), lbl:`${label(p)} runs`,
+      title:`${label(p)} runs ${every ? `every ~${every} min` : `${runs.length} times`} and takes ${pct(sh)} of your usage`,
+      why:`${runs.length} runs in this period. Each one starts fresh and loads its whole context again, the costly step, even when nothing changed.`,
+      todo: at30 ? [`Run it every 30 min: about `, h("b",{},pct(at30)), ` instead of ${pct(sh)} (estimate: a third of the runs, each costing the same). Or only run when something new arrived (inbox, calendar).`]
+                 : [`Check it only runs when something new arrived; a cheaper model for the routine part also helps.`]});
+  }
+
+  // SAVE: very long single sessions
+  const big = rows.filter(s => !s.repeat && s.w/totalW >= .08 && rows.length >= 15).sort((a,b)=>b.w-a.w).slice(0,2);
+  for (const s of big){
+    out.push({type:"save", impact:s.w/totalW*.6, ids:[s.id], lbl:"Long session",
+      title:`One ${label(s.project)} session took ${pct(s.w/totalW)} of your usage`,
+      why:`${s.prompts} prompts over ${s.mins >= 120 ? Math.round(s.mins/60)+" hours" : s.mins+" min"}. A long session re-reads its whole history on every turn, so later turns cost more than early ones.`,
+      todo:[`Start a fresh session for each new task, and carry over only a short summary.`]});
+  }
+
+  // RISK: pushes to main / force
+  const push = rows.filter(s => s.riskLabels.includes("Push to main or force push"));
+  for (const [p, list] of by(push, s=>s.project)){
+    out.push({type:"risk", impact:.5+list.length/100, ids:list.map(s=>s.id), lbl:`${label(p)} pushes`,
+      title:`Pushes to main or force pushes in ${label(p)} (${list.length} session${list.length>1?"s":""})`,
+      why:`On most teams main is what ships. Changes there usually go through a reviewed pull request, not a direct push.`,
+      todo:[`Open the receipt to check each one. Protect main on GitHub so only a merged PR can land there.`]});
+  }
+  // RISK: destructive commands
+  const destr = rows.filter(s => s.riskLabels.includes("Destructive command"));
+  if (destr.length){
+    const projs = [...new Set(destr.map(s=>label(s.project)))];
+    out.push({type:"risk", impact:.4+destr.length/100, ids:destr.map(s=>s.id), lbl:"Destructive commands",
+      title:`Destructive commands in ${destr.length} session${destr.length>1?"s":""}`,
+      why:`rm -rf, git reset --hard, DROP TABLE and similar, in ${projs.slice(0,4).join(", ")}${projs.length>4?"…":""}. Most are cleanup; the receipt shows the exact command.`,
+      todo:[`Skim them once. If any surprised you, add a hook that asks before that command.`]});
+  }
+  // RISK: secret files
+  const sec = rows.filter(s => s.riskLabels.includes("Secret file touched"));
+  if (sec.length >= 3){
+    out.push({type:"risk", impact:.35, ids:sec.map(s=>s.id), lbl:"Secret files",
+      title:`Agents touched secret files in ${sec.length} sessions`,
+      why:`.env files, keys or the Keychain. Anything an agent reads lands in its log on this Mac.`,
+      todo:[`Add a deny rule for reading .env files in Claude Code settings, and load secrets through a script instead.`]});
+  }
+
+  // FIX: same command failing again and again
+  const fails = new Map();
+  for (const s of rows) for (const f of s.fails){ if (!f) continue; const e = fails.get(f) || {n:0, ids:new Set()}; e.n++; e.ids.add(s.id); fails.set(f,e); }
+  [...fails].filter(([,e])=>e.n>=5 && e.ids.size>=2).sort((a,b)=>b[1].n-a[1].n).slice(0,2).forEach(([cmd,e]) => {
+    out.push({type:"fix", impact:.2+e.n/1000, ids:[...e.ids], lbl:"Failing command",
+      title:[``, h("code",{},cmd.length>48?cmd.slice(0,48)+"…":cmd), ` failed ${e.n} times in ${e.ids.size} sessions`],
+      why:`Every failed attempt is a turn spent on retries.`,
+      todo:[`Fix the cause once, or tell the agent the right command in that project's CLAUDE.md.`]});
+  });
+  // FIX: repeated blocks
+  const blocks = new Map();
+  for (const s of rows) for (const b of s.blockedWhat){ const e = blocks.get(b) || {n:0, ids:new Set()}; e.n++; e.ids.add(s.id); blocks.set(b,e); }
+  [...blocks].filter(([,e])=>e.n>=3).sort((a,b)=>b[1].n-a[1].n).slice(0,2).forEach(([what,e]) => {
+    out.push({type:"fix", impact:.2+e.n/1000, ids:[...e.ids], lbl:"Repeated blocks",
+      title:[`The agent kept trying `, h("code",{},what.length>40?what.slice(0,40)+"…":what), ` and was blocked ${e.n} times`],
+      why:`It was blocked each time and tried again anyway.`,
+      todo:[`One line in CLAUDE.md saying what to do instead saves the retries.`]});
+  });
+
+  // RISK: your own rules, broken
+  const byRule = RULES().filter(r=>r.proven).map(r => ({r, list: rows.filter(s=>(s.broken||[]).includes(r.id))})).filter(x=>x.list.length)
+    .sort((a,b)=>b.list.length-a.list.length).slice(0,2);
+  for (const {r, list} of byRule){
+    const projs = [...new Set(list.map(s=>label(s.project)))];
+    out.push({type:"risk", impact:.6+list.length/100, ids:list.map(s=>s.id), lbl:`Broke: ${r.text.slice(0,40)}`,
+      title:`Your rule “${r.text}” was broken in ${list.length} session${list.length>1?"s":""}`,
+      why:`In ${projs.slice(0,4).join(", ")}${projs.length>4?"…":""}. Each receipt shows the exact command and its log line.`,
+      todo:[`Check them once. If it keeps happening, a hook can stop it before it runs, or one line in that project's CLAUDE.md can head it off.`]});
+  }
+
+  // KNOW: client share
+  const clients = rows.filter(s => /(^|\/)Clients\//.test(s.project));
+  if (clients.length && share(clients) >= .05){
+    const per = [...by(clients, s=>s.project.replace(/^.*Clients\//,"").split("/")[0])].map(([c,l])=>[c,share(l)]).sort((a,b)=>b[1]-a[1]);
+    out.push({type:"know", impact:.1, ids:clients.map(s=>s.id), lbl:"Client work",
+      title:`Client work took ${pct(share(clients))} of your usage`,
+      why:per.slice(0,4).map(([c,v])=>`${c} ${pct(v)}`).join(" · "),
+      todo:[`Put each share next to what that client pays: it is your real cost of delivery.`]});
+  }
+
+  const order = {save:0, risk:1, fix:2, know:3}, TAG = {save:"Save", risk:"Risk", fix:"Fix", know:"Know"};
+  out.sort((a,b)=> order[a.type]-order[b.type] || b.impact-a.impact);
+  $("#recs").replaceChildren(...(out.length ? out.slice(0,8).map(r => h("div",{class:"rec "+r.type},
+      h("div",{class:"tag"}, h("i",{"aria-hidden":"true"}), TAG[r.type]),
+      h("h3",{}, r.title), h("p",{}, r.why), h("p",{class:"do"}, ...r.todo),
+      h("div",{class:"ev"}, h("button",{class:"linkbtn", onclick:()=>showSessions(r.ids, r.lbl)}, `Show the ${r.ids.length} session${r.ids.length>1?"s":""}`))))
+    : [h("p",{class:"muted"},"Nothing to recommend in this period.")]));
+}
+
+function chart(rows){
+  const byHour = S.period === "1";
+  const buckets = new Map();
+  if (byHour) for (let i=0;i<24;i++) buckets.set(i,{k:i,label:String(i).padStart(2,"0"),tokens:0,n:0});
+  else {
+    const days = rows.map(s=>s.day).filter(Boolean).sort();
+    if (days.length){
+      const end = S.period === "all" ? new Date(days[days.length-1]+"T12:00:00") : new Date();
+      const start = S.period === "all" ? new Date(days[0]+"T12:00:00") : (()=>{const d=new Date(); d.setDate(d.getDate()-Number(S.period)+1); return d;})();
+      for (let d=new Date(start); localDay(d) <= localDay(end); d.setDate(d.getDate()+1)) buckets.set(localDay(d),{k:localDay(d),label:dayName(localDay(d)),tokens:0,n:0});
+    }
+  }
+  for (const s of rows){ const b = buckets.get(byHour ? s.hour : s.day); if (b){ b.tokens += s.tokens; b.n++; } }
+  const data = [...buckets.values()];
+  $("#charttitle").textContent = byHour ? "Tokens per hour, today" : "Tokens per day";
+  $("#charthint").textContent = "Cache reads included: they are most of the count on long sessions. Each session counts on the day it started.";
+  $("#tabletoggle").textContent = S.table ? "Show as chart" : "Show as table";
+  $("#chart").hidden = S.table; $("#charttable").hidden = !S.table;
+  if (S.table){
+    $("#charttable").replaceChildren(h("div",{style:"max-height:260px;overflow:auto"}, h("table",{},
+      h("tr",{}, h("th",{}, byHour?"Hour":"Day"), h("th",{class:"n"},"Sessions"), h("th",{class:"n"},"Tokens")),
+      data.filter(b=>b.n).map(b => h("tr",{}, h("td",{},b.label), h("td",{class:"n"},fmt(b.n)), h("td",{class:"n"},fmt(b.tokens)))))));
+    return;
+  }
+  const W = Math.max(320, $("#chart").clientWidth || 800), H = 190, padL = 44, padB = 22, padT = 8;
+  const max = Math.max(1, ...data.map(b=>b.tokens));
+  const nice = (()=>{ const p = Math.pow(10, Math.floor(Math.log10(max))); return Math.ceil(max/p)*p; })();
+  const ns = "http://www.w3.org/2000/svg", svg = document.createElementNS(ns,"svg");
+  svg.setAttribute("viewBox",`0 0 ${W} ${H}`); svg.setAttribute("role","img"); svg.setAttribute("aria-label",$("#charttitle").textContent);
+  const S_ = (tag, a) => { const e = document.createElementNS(ns, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const y = v => padT + (H-padT-padB) * (1 - v/nice);
+  for (const f of [0,.5,1]){
+    svg.append(S_("line",{x1:padL,x2:W,y1:y(nice*f),y2:y(nice*f),class:"gridl"}));
+    const t = S_("text",{x:padL-6,y:y(nice*f)+3,"text-anchor":"end",class:"axis"}); t.textContent = short(nice*f); svg.append(t);
+  }
+  const n = Math.max(1,data.length), slot = (W-padL)/n, bw = Math.max(1, Math.min(28, slot-2));
+  const every = Math.ceil(n / Math.max(1, Math.floor((W-padL)/64)));
+  const tip = h("div",{class:"tip"});
+  data.forEach((b,i) => {
+    const x = padL + i*slot + (slot-bw)/2, top = y(b.tokens), g = S_("g",{});
+    const hit = S_("rect",{x:padL+i*slot,y:padT,width:slot,height:H-padT-padB,class:"hit",tabindex:b.n?0:-1});
+    const r = Math.min(4, bw/2), hgt = Math.max(0, H-padB-top);
+    const path = hgt > 0 ? S_("path",{class:"bar",d:`M${x},${H-padB} V${top+r} q0,-${r} ${r},-${r} h${bw-2*r} q${r},0 ${r},${r} V${H-padB} Z`}) : S_("g",{});
+    const show = () => { g.classList.add("on"); tip.replaceChildren(h("b",{},fmt(b.tokens)+" tokens"), `${b.label} · ${b.n} session${b.n===1?"":"s"}`);
+      tip.style.left = Math.min(Math.max(x+bw/2, 80), W-80)+"px"; tip.style.top = (top/H*190)+"px"; tip.style.opacity = 1; };
+    const hide = () => { g.classList.remove("on"); tip.style.opacity = 0; };
+    hit.addEventListener("pointerenter",show); hit.addEventListener("pointerleave",hide); hit.addEventListener("focus",show); hit.addEventListener("blur",hide);
+    if (!byHour) hit.addEventListener("click",()=>{ S.q=""; $("#q").value=""; const el=document.getElementById("day-"+b.k); if(el) el.scrollIntoView({behavior:"smooth"}); });
+    g.append(hit, path); svg.append(g);
+    if (i % every === 0){ const t = S_("text",{x:padL+i*slot+slot/2,y:H-6,"text-anchor":"middle",class:"axis"}); t.textContent = byHour ? b.label : b.label.replace(/^\w+ /,""); svg.append(t); }
+  });
+  $("#chart").replaceChildren(svg, tip);
+}
+
+function ruleBadges(s){
+  const b = (s.broken||[]).length, tr = (s.tried||[]).length;
+  return [b ? h("span",{class:"badge critical", title:"Rules broken"}, h("i",{"aria-hidden":"true"}), `Broke ${b} rule${b>1?"s":""}`) : null,
+          tr ? h("span",{class:"badge warning", title:"Tried, but blocked or failed"}, h("i",{"aria-hidden":"true"}), `Tried ${tr} rule${tr>1?"s":""}`) : null];
+}
+
+const RULES = () => (D.rules && D.rules.list) || [];
+function rulesPanel(rows){
+  const list = RULES();
+  $("#ruleshint").textContent = `Checked against every session in this period. Proven rules are checked against the logs, and each break links its log line. Judged ones need the conversation read; the agent does that when you ask it for a receipt. Edit them in ${(D.rules && D.rules.file) || "~/.session-receipts/rules.md"}${D.live ? "; changes show on the next refresh" : ""}.`;
+  if (!list.length){ $("#rules").replaceChildren(h("tr",{}, h("td",{class:"muted"},"No rules yet."))); return; }
+  const order = r => r.error ? 3 : !r.proven ? 2 : 0;
+  const stats = list.map(r => ({r, broken: rows.filter(s=>(s.broken||[]).includes(r.id)), tried: rows.filter(s=>(s.tried||[]).includes(r.id)),
+      judged: rows.filter(s=>(s.judged||[]).includes(r.id)).length}))
+    .sort((a,b)=> order(a.r)-order(b.r) || b.broken.length-a.broken.length || b.tried.length-a.tried.length);
+  const show = (ids, lbl) => h("button",{class:"linkbtn", onclick:()=>showSessions(ids, lbl)}, "Show");
+  $("#rules").replaceChildren(h("tr",{}, h("th",{},"Rule"), h("th",{},"How"), h("th",{},"In this period")),
+    ...stats.map(({r,broken,tried,judged}) => h("tr",{class:"rulerow"},
+      h("td",{}, r.text, r.error ? h("div",{class:"err",style:"color:var(--critical);font-size:12px"}, r.error) : null),
+      h("td",{}, h("span",{class:"badge tool", title: r.check || "Needs the conversation read"}, r.error ? "Error" : r.proven ? "Proven" : "Judged")),
+      h("td",{}, r.error ? h("span",{class:"muted"}, "Not checked")
+        : !r.proven && !judged ? h("span",{class:"muted"}, "Not judged yet")
+        : !r.proven ? [broken.length ? [h("span",{class:"badge critical"}, h("i",{"aria-hidden":"true"}), `Broken in ${fmt(broken.length)} session${broken.length>1?"s":""}`), " ", show(broken.map(s=>s.id), `Broke: ${r.text.slice(0,40)}`), " "] : null,
+           h("span",{class: broken.length ? "muted" : "ok"}, `${broken.length ? "" : "✓ Kept · "}judged in ${fmt(judged)} of ${fmt(rows.length)}`)]
+        : [broken.length ? [h("span",{class:"badge critical"}, h("i",{"aria-hidden":"true"}), `Broken in ${fmt(broken.length)} session${broken.length>1?"s":""}`), " ", show(broken.map(s=>s.id), `Broke: ${r.text.slice(0,40)}`)] : null,
+           tried.length ? [" ", h("span",{class:"badge warning"}, h("i",{"aria-hidden":"true"}), `Tried, stopped ${fmt(tried.length)}`), " ", show(tried.map(s=>s.id), `Tried: ${r.text.slice(0,40)}`)] : null,
+           !broken.length && !tried.length ? h("span",{class:"ok"}, `✓ Kept in all ${fmt(rows.length)}`) : null]))));
+}
+
+function riskBadges(s){
+  const out = [];
+  for (const lvl of ["critical","serious","warning"]) if (s.risk[lvl]) out.push(h("span",{class:"badge "+lvl, title:LEVEL[lvl]}, h("i",{"aria-hidden":"true"}), `${LEVEL[lvl]} ${s.risk[lvl]}`));
+  return out;
+}
+
+function feed(rows){
+  const items = rows.filter(s => s.risk.critical || s.risk.serious).sort((a,b)=> b.start.localeCompare(a.start)).slice(0,120);
+  $("#feed").replaceChildren(...(items.length ? items.map(s => h("li",{onclick:()=>openReceipt(s.id), tabindex:0, onkeydown:e=>e.key==="Enter"&&openReceipt(s.id)},
+      h("div",{class:"when"}, dayName(s.day).replace(/^\w+ /,""), h("br"), time(s.start)),
+      h("div",{class:"what"}, h("div",{class:"proj"}, s.project, " ", h("span",{class:"badge tool"}, toolName(s.tool))),
+        h("div",{}, riskBadges(s)), h("div",{class:"muted",style:"font-size:12px"}, s.riskLabels.join(" · ")))))
+    : [h("li",{class:"empty",style:"display:block;cursor:default"},"Nothing risky in this period.")]));
+}
+
+function projects(rows){
+  const m = new Map();
+  for (const s of rows){ const p = m.get(s.project) || {name:s.project,n:0,tokens:0,edits:0,last:""}; p.n++; p.tokens+=s.tokens; p.edits+=s.edits; if (s.start>p.last) p.last=s.start; m.set(s.project,p); }
+  const totalW = Math.max(1, rows.reduce((a,s)=>a+s.w,0));
+  for (const s of rows) m.get(s.project).w = (m.get(s.project).w||0) + s.w;
+  const list = [...m.values()].sort((a,b)=>b.w-a.w);
+  $("#projects").replaceChildren(h("tr",{}, h("th",{},"Project"), h("th",{class:"n"},"Sessions"), h("th",{class:"n"},"Files"), h("th",{class:"n"},"Tokens"), h("th",{class:"n",title:"Share of usage in this period, weighted by token kind"},"Share")),
+    ...list.map(p => h("tr",{class:"click", onclick:()=>{ S.q=p.name; $("#q").value=p.name; render(); $("#sessions").scrollIntoView({behavior:"smooth"}); }},
+      h("td",{class:"mono"},p.name), h("td",{class:"n"},fmt(p.n)), h("td",{class:"n"},fmt(p.edits)), h("td",{class:"n"},short(p.tokens)), h("td",{class:"n"},pct(p.w/totalW)))));
+}
+
+function srow(s){
+  return h("div",{class:"srow", tabindex:0, onclick:()=>openReceipt(s.id), onkeydown:e=>e.key==="Enter"&&openReceipt(s.id)},
+    h("div",{class:"t"}, time(s.start), s.mins ? h("div",{class:"muted",style:"font-size:11px"}, s.mins+" min") : null),
+    h("div",{class:"mid"}, h("div",{}, h("span",{class:"p"},s.project), " ", h("span",{class:"badge tool"},toolName(s.tool)), s.repeat ? h("span",{class:"badge tool"},"scheduled") : null, riskBadges(s), ruleBadges(s)),
+      h("div",{class:"a"}, s.title || s.ask || "(no prompt)")),
+    h("div",{class:"meta"}, h("span",{title:"prompts"}, s.prompts+" asks"), h("span",{title:"commands"}, s.commands+" cmds"), h("span",{title:"files changed"}, s.edits+" files"), h("span",{title:"tokens"}, short(s.tokens))));
+}
+
+function sessions(rows){
+  const days = new Map();
+  for (const s of [...rows].sort((a,b)=>b.start.localeCompare(a.start))){ if (!days.has(s.day)) days.set(s.day,[]); days.get(s.day).push(s); }
+  const out = []; let count = 0;
+  for (const [day, list] of days){
+    if (count >= S.shown) break;
+    const groups = new Map(), items = [];
+    for (const s of list){
+      if (s.repeat){ if (!groups.has(s.repeat)){ const g={key:s.repeat,runs:[]}; groups.set(s.repeat,g); items.push(g); } groups.get(s.repeat).runs.push(s); }
+      else items.push(s);
+    }
+    const tok = list.reduce((a,s)=>a+s.tokens,0);
+    out.push(h("div",{class:"day",id:"day-"+day}, h("h3",{}, h("span",{},dayName(day)), h("span",{}, `${list.length} sessions · ${short(tok)} tokens`)),
+      items.map(it => {
+        count++;
+        if (!it.runs) return srow(it);
+        const runs = it.runs, t = runs.reduce((a,s)=>a+s.tokens,0), r = runs[0];
+        const crit = runs.reduce((a,s)=>a+(s.risk.critical||0),0), ser = runs.reduce((a,s)=>a+(s.risk.serious||0),0);
+        const body = h("div",{hidden:true}, runs.map(srow));
+        return h("div",{},
+          h("div",{class:"srow group", tabindex:0, onclick:()=>{ body.hidden=!body.hidden; }},
+            h("div",{class:"t"}, `${time(runs[runs.length-1].start)}–${time(runs[0].start)}`),
+            h("div",{class:"mid"}, h("div",{}, h("span",{class:"p"}, r.project), " ", h("span",{class:"badge tool"}, `scheduled · ${runs.length} runs`),
+              crit ? h("span",{class:"badge critical"},h("i"),`Critical ${crit}`) : null, ser ? h("span",{class:"badge serious"},h("i"),`Serious ${ser}`) : null),
+              h("div",{class:"a"}, r.title || r.ask)),
+            h("div",{class:"meta"}, h("span",{}, short(t)+" tokens"), h("span",{class:"muted"},"click to expand"))),
+          body);
+      })));
+  }
+  if (!rows.length) out.push(h("div",{class:"empty"},"No sessions match."));
+  if (count >= S.shown && days.size) out.push(h("button",{class:"more", onclick:()=>{ S.shown += 60; sessions(rows); }}, "Show more days"));
+  $("#sessions").replaceChildren(...out);
+}
+
+/* ---------- receipt ---------- */
+const cache = {};
+window.__receipt = (id, data) => { cache[id] = data; if (pendingId === id) drawReceipt(data); };
+let pendingId = null;
+function openReceipt(id){
+  pendingId = id;
+  const dlg = $("#dlg");
+  $("#receipt").replaceChildren(h("p",{class:"muted"},"Loading…"));
+  if (!dlg.open) dlg.showModal();
+  if (cache[id]) return drawReceipt(cache[id]);
+  if (window.LIVE){
+    fetch("/api/s/" + encodeURIComponent(id)).then(r => r.ok ? r.json() : Promise.reject())
+      .then(d => window.__receipt(id, d), () => { if (pendingId === id) $("#receipt").replaceChildren(h("p",{},"This receipt is gone. Refresh the page.")); });
+    return;
+  }
+  const sc = document.createElement("script"); sc.src = "s/" + encodeURIComponent(id) + ".js";
+  sc.onerror = () => $("#receipt").replaceChildren(h("p",{},"Receipt file missing. Rebuild the dashboard."));
+  document.body.append(sc);
+}
+$("#dlg").addEventListener("click", e => { if (e.target.id === "dlg") e.target.close(); });
+
+const refEl = r => r ? h("span",{class:"ref", title:"Log file and line: the proof"}, `${r.file.split("/").pop()}:${r.line}`) : null;
+function rulesSection(r, sec){
+  const list = RULES(), res = Object.fromEntries((r.rules||[]).map(x=>[x.id,x]));
+  if (!list.length) return sec("Rules", h("p",{class:"muted"},"No rules yet."));
+  const rank = {broken:0, tried:1, kept:2, judge:3, error:4};
+  const items = list.map(rule => ({rule, x: res[rule.id]})).sort((a,b)=> (a.x?rank[a.x.status]:5) - (b.x?rank[b.x.status]:5));
+  const hit = (x) => h("div",{class:"hit"}, h("span",{class:"muted mono"}, time(x.at)), " ", h("code",{}, x.what.slice(0,300)), " ", refEl(x.ref),
+      x.asked ? h("div",{class:"ok",style:"font-size:12px"}, "✓ Allowed: you asked “", x.asked.text.slice(0,120), "” ", refEl(x.asked.ref)) : null,
+      !x.ok && !x.asked ? h("div",{class:"muted",style:"font-size:12px"}, "Didn't go through (blocked or failed).") : null);
+  const n = broken => items.filter(i=>i.x && i.x.status===broken).length;
+  const head = n("broken") ? `Rules: ${n("broken")} broken` : "Rules";
+  return sec(head, items.map(({rule, x}) => {
+    const st = !x ? h("span",{class:"muted"},"Not checked: this receipt was archived before the rule existed")
+      : x.status==="broken" ? h("span",{class:"badge critical"}, h("i",{"aria-hidden":"true"}), "Broken")
+      : x.status==="tried" ? h("span",{class:"badge warning"}, h("i",{"aria-hidden":"true"}), "Tried, stopped")
+      : x.status==="kept" ? h("span",{class:"badge good"}, h("i",{"aria-hidden":"true"}), "Kept")
+      : x.status==="judge" ? h("span",{class:"badge tool"}, "Not judged yet")
+      : h("span",{class:"badge serious"}, h("i",{"aria-hidden":"true"}), "Rule error");
+    const note = x && x.status==="kept" && !x.hits.length ? h("span",{class:"muted",style:"font-size:12px"}, x.checked ? `checked ${fmt(x.checked)} action${x.checked>1?"s":""}` : "nothing to check") : null;
+    const why = x && x.judged ? h("div",{class:"hit"}, h("span",{class:"muted",style:"font-size:12px"}, "Judged by the agent: "), x.why, " ",
+      x.hits[0] ? refEl(x.hits[0].ref) : null)
+      : x && x.status==="judge" && x.why ? h("div",{class:"muted hit",style:"font-size:12px"}, x.why) : null;
+    return h("div",{class:"rule"}, h("div",{class:"rt"}, st, h("b",{}, rule.text), why ? null : note),
+      why || (x ? x.hits.map(hit) : null), x && x.more ? h("div",{class:"muted hit"}, `and ${x.more} more`) : null);
+  }));
+}
+
+function drawReceipt(r){
+  const sec = (title, ...kids) => h("section",{}, h("h4",{},title), ...kids);
+  const dur = r.start && r.end ? Math.round((new Date(r.end)-new Date(r.start))/60000) : 0;
+  const cmds = r.actions.filter(a=>a.kind==="command");
+  const line = a => h("div",{class:"line"}, h("div",{class:"tm"}, time(a.at)),
+    h("div",{}, h("code",{class:"k-"+a.kind}, a.kind==="command"||a.kind==="edit"||a.kind==="read" ? a.detail : `${a.name} ${a.detail}`),
+      a.sub ? h("span",{class:"badge tool",style:"margin-left:6px"},"subagent") : null, " ", refEl(a.ref),
+      !a.ok && a.error ? h("div",{class:"err"}, "✗ " + a.error.slice(0,400)) : null));
+  const t = r.tokens;
+  const flagged = (r.rules||[]).some(x => x.status==="broken" || x.status==="tried");  // then rules come first
+  $("#receipt").replaceChildren(...[
+    h("button",{class:"close", "aria-label":"Close", onclick:()=>$("#dlg").close()},"×"),
+    h("div",{class:"head"},
+      h("div",{class:"muted mono",style:"font-size:11.5px"}, `${toolName(r.tool).toUpperCase()} · RECEIPT`),
+      h("h2",{}, r.title || r.project),
+      h("div",{class:"muted"}, `${r.project} · ${r.start ? new Date(r.start).toLocaleString("en-IE",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}) : ""}${dur ? ` · ${dur} min` : ""}`)),
+    flagged ? rulesSection(r, sec) : null,
+    sec("You asked", r.prompts.length ? r.prompts.map(p => h("div",{class:"prompt"}, p.kind!=="typed" ? h("span",{class:"badge tool"},p.kind) : null, p.text, p.cut ? h("span",{class:"muted"}," … (cut)") : null, " ", refEl(p.ref))) : h("p",{class:"muted"},"No typed prompts in this period.")),
+    flagged ? null : rulesSection(r, sec),
+    sec("Risky moments", r.risks.length ? r.risks.map(x => h("div",{class:"line"}, h("div",{class:"tm"},time(x.at)),
+        h("div",{}, h("span",{class:"badge "+x.level}, h("i"), `${LEVEL[x.level]} · ${x.label}`), " ", refEl(x.ref), h("div",{}, h("code",{}, x.detail.slice(0,400))))))
+      : h("p",{class:"ok"},"✓ Nothing risky.")),
+    r.denials.length ? sec("Blocked", r.denials.map(d => h("div",{class:"line"}, h("div",{class:"tm"},time(d.at)), h("div",{}, h("code",{},d.what), " ", refEl(d.ref), h("div",{class:"err"}, `${d.source}: ${d.reason.slice(0,300)}`))))) : null,
+    sec(`Files changed (${r.files.length})`, r.files.length ? r.files.map(f => h("div",{class:"mono",style:"padding:2px 0",title:f}, r.cwd && f.startsWith(r.cwd+"/") ? f.slice(r.cwd.length+1) : f)) : h("p",{class:"muted"},"None.")),
+    sec(`Commands (${cmds.length})`, cmds.length ? [...cmds.slice(0,30).map(line), cmds.length>30 ? h("details",{}, h("summary",{},`${cmds.length-30} more`), cmds.slice(30).map(line)) : null] : h("p",{class:"muted"},"None.")),
+    sec(`Everything it did (${r.actions.length})`, h("details",{}, h("summary",{},"Show the full timeline"), r.actions.map(line))),
+    sec("Usage", h("div",{class:"tok"},
+        h("div",{}, h("b",{},short(t.input)), h("span",{},"input")), h("div",{}, h("b",{},short(t.cache_read)), h("span",{},"cache read")),
+        h("div",{}, h("b",{},short(t.cache_write)), h("span",{},"cache write")), h("div",{}, h("b",{},short(t.output)), h("span",{}, t.reasoning ? `output (${short(t.reasoning)} reasoning)` : "output"))),
+      h("div",{class:"total"}, h("span",{},"TOTAL TOKENS"), h("span",{}, fmt(t.total)))),
+    sec("Details", h("dl",{class:"kv"},
+      [["Model", r.models.join(", ")||"?"], ["Permissions", r.mode||"default"], ["Folder", r.cwd], ["Branch", r.branch], ["Subagents", r.subagents||""], ["Log", r.log], ["Notes", r.notes.join("; ")]]
+        .filter(([,v])=>v).map(([k,v]) => [h("dt",{},k), h("dd",{},String(v))])))
+  ].filter(Boolean));
+  $("#receipt").scrollTop = 0;
+}
+
+/* ---------- wiring ---------- */
+for (const [id,key] of [["#period","period"],["#tool","tool"]])
+  $(id).addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; S[key] = b.dataset.v; S.shown = 40; S.ids = null; save(); render(); });
+$("#sched").addEventListener("change", e => { S.sched = e.target.checked; save(); render(); });
+let qt; $("#q").addEventListener("input", e => { clearTimeout(qt); qt = setTimeout(()=>{ S.q = e.target.value; S.shown = 40; render(); }, 120); });
+$("#tabletoggle").addEventListener("click", () => { S.table = !S.table; chart(filtered()); });
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(()=>chart(filtered()), 150); });
+addEventListener("keydown", e => { if (e.key === "/" && document.activeElement !== $("#q")){ e.preventDefault(); $("#q").focus(); } });
+function start(){
+  if (!D){ document.body.textContent = "No data yet. Run: python3 -m receipts serve"; return; }
+  stamp(); render();
+  const deep = location.hash.match(/^#s=([\w-]+)$/); if (deep) openReceipt(deep[1]);
+}
+const getData = () => fetch("/api/data").then(r => r.ok ? r.json() : Promise.reject(r.status));
+if (window.LIVE){
+  $("#built").textContent = "reading your logs…";
+  getData().then(d => { D = d; start(); }, () => { document.body.textContent = "Couldn't load the receipts. Is python3 -m receipts serve running?"; });
+  // Stay current: re-read every 30 s while the tab is visible, and on coming back to it.
+  const tick = () => { if (document.hidden || !D) return;
+    getData().then(d => { if (d.built === D.built) return; D = d; stamp(); render();
+      // Receipts may have changed too: drop the cached ones and redraw the open one.
+      for (const k of Object.keys(cache)) delete cache[k];
+      const dlg = $("#dlg"), id = pendingId;
+      if (dlg.open && id) fetch("/api/s/" + encodeURIComponent(id)).then(r => r.ok ? r.json() : null).then(x => {
+        if (!x || pendingId !== id || !dlg.open) return;
+        cache[id] = x; const y = dlg.scrollTop; drawReceipt(x); dlg.scrollTop = y; }, () => {}); }, () => {}); };
+  setInterval(tick, 30000);
+  document.addEventListener("visibilitychange", tick);
+} else start();
+</script>
+</body>
+</html>

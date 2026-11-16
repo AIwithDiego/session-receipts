@@ -1,0 +1,13 @@
+{"timestamp": "2026-11-05T10:00:00.000Z", "type": "session_meta", "payload": {"id": "cx1", "cwd": "/Users/demo/other"}}
+{"timestamp": "2026-11-05T10:00:00.000Z", "type": "turn_context", "payload": {"model": "gpt-test", "approval_policy": "never", "sandbox_policy": {"type": "danger-full-access"}, "cwd": "/Users/demo/other"}}
+{"timestamp": "2026-11-05T10:01:00.000Z", "type": "event_msg", "payload": {"type": "item_completed", "item": {"type": "UserMessage", "content": [{"type": "text", "text": "add a readme"}]}}}
+{"timestamp": "2026-11-05T10:02:00.000Z", "type": "event_msg", "payload": {"type": "item_completed", "item": {"type": "CommandExecution", "command": ["/bin/zsh", "-lc", "git push origin main"], "status": "completed", "exit_code": 0, "aggregated_output": ""}}}
+{"timestamp": "2026-11-05T10:03:00.000Z", "type": "event_msg", "payload": {"type": "item_completed", "item": {"type": "CommandExecution", "command": ["/bin/zsh", "-lc", "npm test"], "status": "failed", "exit_code": 1, "aggregated_output": "1 failing"}}}
+{"timestamp": "2026-11-05T10:04:00.000Z", "type": "event_msg", "payload": {"type": "item_completed", "item": {"type": "CommandExecution", "command": ["rm", "-rf", "build"], "status": "declined"}}}
+{"timestamp": "2026-11-05T10:05:00.000Z", "type": "event_msg", "payload": {"type": "item_completed", "item": {"type": "FileChange", "changes": {"/Users/demo/other/README.md": {"type": "add"}}, "status": "completed"}}}
+{"timestamp": "2026-11-05T10:06:00.000Z", "type": "event_msg", "payload": {"type": "item_completed", "item": {"type": "McpToolCall", "server": "github", "tool": "create_pr", "arguments": {"title": "x"}, "status": "completed"}}}
+{"timestamp": "2026-11-05T10:06:00.000Z", "type": "event_msg", "payload": {"type": "item_completed", "item": {"type": "Reasoning"}}}
+{"timestamp": "2026-11-05T10:07:00.000Z", "type": "event_msg", "payload": {"type": "item_completed", "item": {"type": "BrandNewThing"}}}
+{"timestamp": "2026-11-05T10:08:00.000Z", "type": "token_usage_record", "payload": {"response_id": "r1", "usage": {"input_tokens": 1000, "cached_input_tokens": 800, "cache_write_input_tokens": 0, "output_tokens": 50, "reasoning_output_tokens": 20, "total_tokens": 1050}}}
+{"timestamp": "2026-11-05T10:08:00.000Z", "type": "token_usage_record", "payload": {"response_id": "r1", "usage": {"input_tokens": 1000, "cached_input_tokens": 800, "cache_write_input_tokens": 0, "output_tokens": 50, "reasoning_output_tokens": 20, "total_tokens": 1050}}}
+{"timestamp": "2026-11-05T10:09:00.000Z", "type": "token_usage_record", "payload": {"response_id": "r2", "usage": {"input_tokens": 1000, "cached_input_tokens": 800, "cache_write_input_tokens": 0, "output_tokens": 50, "reasoning_output_tokens": 20, "total_tokens": 1050}}}
