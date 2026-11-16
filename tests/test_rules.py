@@ -145,7 +145,8 @@ class TrialWeekNoise(unittest.TestCase):
 
     def test_secret_output_from_printed_substitutions(self):
         for c in ['echo "$(cat .env)"', 'printf "%s\\n" "$(tail .env)"',
-                  'echo "prefix $(cat .env.local) suffix"', 'echo "$(bash -c \'cat .env\')"']:
+                  'echo "prefix $(cat .env.local) suffix"', 'echo "$(bash -c \'cat .env\')"',
+                  r'echo "\\$(cat .env)"']:
             with self.subTest(command=c):
                 self.assertEqual(self.results(session(cmd(c, 1)))["Never print secret files"].status, "broken")
 
@@ -155,7 +156,8 @@ class TrialWeekNoise(unittest.TestCase):
                   'bash -c "source .env"', 'bash -c "cat .env | wc -l"',
                   'bash -c "cat .env" | wc -l',
                   'echo "$(cat .env | cut -d= -f1)"', 'echo "$(cat .env)" | wc -c',
-                  'echo "$(cat .env.example)"', 'bash -c "echo \'cat .env\'"']:
+                  'echo "$(cat .env.example)"', 'bash -c "echo \'cat .env\'"',
+                  r'echo "\$(cat .env)"', r'printf "%s" "\$(tail .env)"']:
             with self.subTest(command=c):
                 self.assertEqual(self.results(session(cmd(c, 1)))["Never print secret files"].status, "kept")
 

@@ -235,7 +235,12 @@ def _command_hit(r: Rule, text: str) -> bool:
 
 def _secret_output(text: str) -> bool:
     """Follow quoted shell code and substitutions whose output is printed."""
-    captures = list(CAPTURED.finditer(text))
+    captures = []
+    for captured in CAPTURED.finditer(text):
+        prefix = text[:captured.start()]
+        escapes = len(prefix) - len(prefix.rstrip("\\"))
+        if escapes % 2 == 0:
+            captures.append(captured)
     for quoted in QUOTED.finditer(text):
         if quoted.group(0).startswith("\\"):
             continue
@@ -250,7 +255,8 @@ def _secret_output(text: str) -> bool:
                 return True
 
     # Keep offsets so each substitution can be associated with its outer statement.
-    masked = CAPTURED.sub(lambda m: "$X".ljust(len(m.group(0))), text)
+    starts = {c.start() for c in captures}
+    masked = CAPTURED.sub(lambda m: "$X".ljust(len(m.group(0))) if m.start() in starts else m.group(0), text)
     start = 0
     boundaries = [(m.start(), m.end()) for m in STATEMENTS.finditer(masked)]
     for end, next_start in boundaries + [(len(masked), len(masked))]:
