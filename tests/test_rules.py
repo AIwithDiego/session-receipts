@@ -136,6 +136,29 @@ class TrialWeekNoise(unittest.TestCase):
                   "git push origin 'main'"]:
             self.assertEqual(self.results(session(cmd(c, 1)))["Never push to main"].status, "broken", c)
 
+    def test_secret_output_from_quoted_shell_commands(self):
+        for c in ['bash -c "cat .env"', "sh -c 'tail .env'", 'ssh box "cat .env"',
+                  'eval "cat .env"', 'bash -c "echo ready; cat .env"',
+                  "bash -c 'echo \"$(cat .env)\"'"]:
+            with self.subTest(command=c):
+                self.assertEqual(self.results(session(cmd(c, 1)))["Never print secret files"].status, "broken")
+
+    def test_secret_output_from_printed_substitutions(self):
+        for c in ['echo "$(cat .env)"', 'printf "%s\\n" "$(tail .env)"',
+                  'echo "prefix $(cat .env.local) suffix"', 'echo "$(bash -c \'cat .env\')"']:
+            with self.subTest(command=c):
+                self.assertEqual(self.results(session(cmd(c, 1)))["Never print secret files"].status, "broken")
+
+    def test_nested_secret_commands_that_do_not_print_values(self):
+        for c in ['grep -rn "cat .env" docs/', "echo '$(cat .env)'", 'source .env',
+                  'T=$(grep TOKEN .env | cut -d= -f2-)', 'T=$(bash -c "cat .env")',
+                  'bash -c "source .env"', 'bash -c "cat .env | wc -l"',
+                  'bash -c "cat .env" | wc -l',
+                  'echo "$(cat .env | cut -d= -f1)"', 'echo "$(cat .env)" | wc -c',
+                  'echo "$(cat .env.example)"', 'bash -c "echo \'cat .env\'"']:
+            with self.subTest(command=c):
+                self.assertEqual(self.results(session(cmd(c, 1)))["Never print secret files"].status, "kept")
+
     def test_release_review_bypasses_are_caught(self):
         env = "." + "env"
         push = ["git commit -m 'don'\\''t' && git push origin main && echo 'done ok'",

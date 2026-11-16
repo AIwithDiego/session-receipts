@@ -106,6 +106,8 @@ Write them in `~/.session-receipts/rules.md`, one per line, in plain language. A
 
 Checks: `push-main`, `force-push`, `secret-files`, `secrets`, `command: <regex>`, `file: <glob>`, `edit: <glob>`, each optionally followed by `unless asked: <regex>` (allowed when an earlier prompt in the session matched, and not when it said "don't"). The checks look at what the shell runs: quoted text with a space in it (a commit message, a search pattern, `python -c` code) and heredocs fed to a program are data, unless `sh -c`, `eval`, `ssh`, a pipe into a shell or `$(...)` runs them. The `secrets` check reads quoted text too, so a fake test key in a command counts. No rules file yet? Your agent offers to write one from your `CLAUDE.md` or `AGENTS.md`.
 
+The `secret-files` check also follows quoted commands run by `sh -c`, `bash -c`, `eval` or `ssh`, and substitutions printed by `echo` or `printf`, such as `echo "$(cat .env)"`. Loading a file with `source` or capturing its output in a variable is still allowed; printing only names or counts remains allowed too.
+
 ## Results
 
 I ran it on my own work for a week before anyone else got it. The full write-up, including the noise, is in [LEARNINGS.md](LEARNINGS.md).

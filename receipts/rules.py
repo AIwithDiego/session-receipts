@@ -26,7 +26,7 @@ from pathlib import Path
 
 from .model import Prompt, Ref, Session
 from .redact import SHAPES, clip
-from .risk import FORCE, GIT_PUSH, TO_MAIN, command_text, plain_command
+from .risk import FORCE, GIT_PUSH, QUOTED, RUNS_QUOTED, TO_MAIN, command_text, plain_command
 from . import verdicts as verdicts_mod
 
 EXAMPLE = Path(__file__).parent / "assets" / "rules.example.md"
@@ -49,6 +49,7 @@ HARMLESS = re.compile(
 EDITS_IN_PLACE = re.compile(r"^\s*(sudo\s+)?sed\s+(-\S+\s+)*-i")
 # $(...) captures output into a variable: loaded, not shown.
 CAPTURED = re.compile(r"\$\((?:[^()]|\([^()]*\))*\)")
+PRINT_ARGUMENTS = re.compile(r"^\s*(sudo\s+)?(echo|printf)\b")
 STATEMENTS = re.compile(r"\|\||&&|;|\n")
 WRITES = re.compile(r"^\s*cat\s*>")
 # Only the secret shapes that can't be mistaken for something else (not NAME=value guesses).
@@ -224,11 +225,43 @@ def _command_hit(r: Rule, text: str) -> bool:
     if r.kind == "force-push":
         return bool(FORCE_PUSH.search(text))
     if r.kind == "secret-files":
-        return any(_prints_secret(st) for st in STATEMENTS.split(CAPTURED.sub("$X", text)))
+        return _secret_output(text)
     if r.kind == "secrets":
         return any(not NOT_SECRET.search(m.group(0)) for p in SECRET_SHAPES for m in p.finditer(text))
     if r.kind == "command":
         return bool(r._rx.search(text))
+    return False
+
+
+def _secret_output(text: str) -> bool:
+    """Follow quoted shell code and substitutions whose output is printed."""
+    captures = list(CAPTURED.finditer(text))
+    for quoted in QUOTED.finditer(text):
+        if quoted.group(0).startswith("\\"):
+            continue
+        # A shell inside an assignment's $(...) still has its output captured.
+        if any(c.start() <= quoted.start() < c.end() for c in captures):
+            continue
+        if RUNS_QUOTED.search(text[max(0, quoted.start() - 120):quoted.start()]):
+            following = STATEMENTS.split(text[quoted.end():], maxsplit=1)[0]
+            if HARMLESS.search(following):
+                continue
+            if _secret_output(plain_command(quoted.group(0)[1:-1])):
+                return True
+
+    # Keep offsets so each substitution can be associated with its outer statement.
+    masked = CAPTURED.sub(lambda m: "$X".ljust(len(m.group(0))), text)
+    start = 0
+    boundaries = [(m.start(), m.end()) for m in STATEMENTS.finditer(masked)]
+    for end, next_start in boundaries + [(len(masked), len(masked))]:
+        statement = masked[start:end]
+        if _prints_secret(statement):
+            return True
+        if PRINT_ARGUMENTS.search(statement) and not HARMLESS.search(statement):
+            for captured in captures:
+                if start <= captured.start() < end and _secret_output(plain_command(captured.group(0)[2:-1])):
+                    return True
+        start = next_start
     return False
 
 
