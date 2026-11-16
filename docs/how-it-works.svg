@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" width="1200" height="640" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title>Session receipts: how it works</title>
+  <desc>Claude Code and Codex session logs, already on your machine, are read into one session shape where every fact keeps its log file and line. Secrets are redacted before anything is written or shown. Rules are checked two ways: proven by code from commands and files, or judged by your own agent, which must cite the log line. The result is a receipt per session on a local dashboard, a static copy, an archive that outlives log cleanup, and a weekly summary. Nothing is sent anywhere.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8A847A"/>
+    </marker>
+    <style>
+      .card { fill: #FFFFFF; stroke: #DCD6CC; stroke-width: 1.5; }
+      .step { font-size: 12px; font-weight: 700; letter-spacing: 1.2px; fill: #D33B2F; }
+      .h { font-size: 18px; font-weight: 700; fill: #141414; }
+      .t { font-size: 13.5px; fill: #5F5A52; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; fill: #8A847A; }
+      .code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; fill: #141414; }
+      .line { stroke: #8A847A; stroke-width: 2; fill: none; }
+      .pill { fill: #F4F2EE; stroke: #DCD6CC; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="640" rx="20" fill="#F4F2EE"/>
+
+  <text x="40" y="58" font-size="30" font-weight="800" fill="#141414">Session receipts</text>
+  <text x="40" y="88" font-size="17" fill="#5F5A52">Your agents already log every step on your machine. This turns those logs into evidence.</text>
+
+  <!-- 1 Logs -->
+  <rect class="card" x="40" y="120" width="196" height="330" rx="14"/>
+  <text class="step" x="58" y="150">1 · LOGS</text>
+  <text class="h" x="58" y="176">Already on disk</text>
+  <rect class="pill" x="58" y="194" width="160" height="30" rx="15"/>
+  <text class="code" x="72" y="214">Claude Code</text>
+  <rect class="pill" x="58" y="232" width="160" height="30" rx="15"/>
+  <text class="code" x="72" y="252">Codex</text>
+  <text class="t" x="58" y="290">Both tools write every</text>
+  <text class="t" x="58" y="308">prompt, command and</text>
+  <text class="t" x="58" y="326">edit as JSON lines.</text>
+  <text class="mono" x="58" y="410">~/.claude/projects</text>
+  <text class="mono" x="58" y="428">~/.codex/sessions</text>
+
+  <path class="line" d="M238 285 H270" marker-end="url(#arrow)"/>
+
+  <!-- 2 Read -->
+  <rect class="card" x="274" y="120" width="196" height="330" rx="14"/>
+  <text class="step" x="292" y="150">2 · READ</text>
+  <text class="h" x="292" y="176">One session shape</text>
+  <text class="t" x="292" y="204">Prompts, commands,</text>
+  <text class="t" x="292" y="222">files changed, what was</text>
+  <text class="t" x="292" y="240">blocked, tokens.</text>
+  <rect x="292" y="262" width="160" height="34" rx="8" fill="#141414"/>
+  <text x="304" y="284" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12.5" fill="#FBFAF7">log.jsonl:42</text>
+  <text class="t" x="292" y="324">Every fact keeps its</text>
+  <text class="t" x="292" y="342">file and line: the proof.</text>
+  <text class="mono" x="292" y="410">receipts/claude_code.py</text>
+  <text class="mono" x="292" y="428">receipts/codex.py</text>
+
+  <path class="line" d="M472 285 H504" marker-end="url(#arrow)"/>
+
+  <!-- 3 Redact -->
+  <rect class="card" x="508" y="120" width="196" height="330" rx="14"/>
+  <text class="step" x="526" y="150">3 · REDACT</text>
+  <text class="h" x="526" y="176">Secrets out first</text>
+  <rect class="pill" x="526" y="194" width="160" height="30" rx="8"/>
+  <text class="code" x="538" y="214">sk-ant-•••••••</text>
+  <rect class="pill" x="526" y="232" width="160" height="30" rx="8"/>
+  <text class="code" x="538" y="252">STRIPE_KEY=•••</text>
+  <text class="t" x="526" y="290">Keys, tokens, passwords</text>
+  <text class="t" x="526" y="308">and headers, before</text>
+  <text class="t" x="526" y="326">anything is written,</text>
+  <text class="t" x="526" y="344">shown or cut short.</text>
+  <text class="mono" x="526" y="410">receipts/redact.py</text>
+  <text class="mono" x="526" y="428">tests/test_leaks.py</text>
+
+  <path class="line" d="M706 285 H738" marker-end="url(#arrow)"/>
+
+  <!-- 4 Rules -->
+  <rect class="card" x="742" y="120" width="196" height="330" rx="14"/>
+  <text class="step" x="760" y="150">4 · YOUR RULES</text>
+  <text class="h" x="760" y="176">Kept or broken</text>
+  <rect x="760" y="192" width="160" height="104" rx="10" fill="#F4F2EE" stroke="#DCD6CC"/>
+  <text x="772" y="214" font-size="13.5" font-weight="700" fill="#141414">Proven by code</text>
+  <text class="t" x="772" y="234">push to main, secrets,</text>
+  <text class="t" x="772" y="252">any command or file</text>
+  <text class="mono" x="772" y="282">receipts/rules.py</text>
+  <rect x="760" y="306" width="160" height="104" rx="10" fill="#F4F2EE" stroke="#DCD6CC"/>
+  <text x="772" y="328" font-size="13.5" font-weight="700" fill="#141414">Judged by your agent</text>
+  <text class="t" x="772" y="348">"ask before building",</text>
+  <text class="t" x="772" y="366">must cite the log line</text>
+  <text class="mono" x="772" y="396">SKILL.md · judge.py</text>
+  <text class="mono" x="760" y="432">rules.md, in plain words</text>
+
+  <path class="line" d="M940 285 H972" marker-end="url(#arrow)"/>
+
+  <!-- 5 Receipts -->
+  <rect class="card" x="976" y="120" width="184" height="330" rx="14"/>
+  <text class="step" x="994" y="150">5 · RECEIPTS</text>
+  <text class="h" x="994" y="176">One page each</text>
+  <g font-size="13.5">
+    <circle cx="1000" cy="203" r="5" fill="#D33B2F"/><text x="1012" y="208" fill="#141414">Broken, with line</text>
+    <circle cx="1000" cy="229" r="5" fill="#1F9D4C"/><text x="1012" y="234" fill="#141414">Kept, with count</text>
+    <circle cx="1000" cy="255" r="5" fill="#8A847A"/><text x="1012" y="260" fill="#141414">Risky moments</text>
+  </g>
+  <text class="t" x="994" y="296">Live dashboard, static</text>
+  <text class="t" x="994" y="314">copy, an archive that</text>
+  <text class="t" x="994" y="332">outlives log cleanup,</text>
+  <text class="t" x="994" y="350">receipts for the week.</text>
+  <text class="mono" x="994" y="410">localhost:4747</text>
+  <text class="mono" x="994" y="428">~/.session-receipts</text>
+
+  <!-- Footer band -->
+  <rect x="40" y="478" width="1120" height="122" rx="14" fill="#141414"/>
+  <text x="68" y="514" font-size="12" font-weight="700" letter-spacing="1.2" fill="#F08A7F">GROUND RULES</text>
+  <text x="68" y="544" font-size="16" font-weight="700" fill="#FBFAF7">Nothing leaves your machine.</text>
+  <text x="68" y="570" font-size="13.5" fill="#C9C3B8">The tool sends nothing. Your agent sees redacted receipts only when you ask it for them.</text>
+  <text x="640" y="544" font-size="16" font-weight="700" fill="#FBFAF7">Not sure means not recorded.</text>
+  <text x="640" y="570" font-size="13.5" fill="#C9C3B8">A judged rule with no clear evidence stays "not judged yet". No guesses.</text>
+</svg>

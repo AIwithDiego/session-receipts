@@ -228,10 +228,12 @@ function stamp(){
 $("#built").textContent = (D.live ? "live · updated " : "built ") + new Date(D.built).toLocaleString("en-IE",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}) + (()=>{ const n = D.sessions.filter(s=>s.archived).length; return n ? ` · ${n.toLocaleString("en-IE")} from the archive` : ""; })();
 }
 
+// A frozen copy (the hosted demo) counts its days from when it was built, not from today.
+const now = () => D && D.frozen ? new Date(D.built) : new Date();
 function filtered(whole){
-  const today = localDay(new Date());
+  const today = localDay(now());
   let from = "";
-  if (S.period !== "all"){ const d = new Date(); d.setDate(d.getDate() - (Number(S.period) - 1)); from = localDay(d); }
+  if (S.period !== "all"){ const d = now(); d.setDate(d.getDate() - (Number(S.period) - 1)); from = localDay(d); }
   const q = S.q.trim().toLowerCase();
   return D.sessions.filter(s =>
     (!from || (s.day >= from && s.day <= today)) &&
@@ -387,8 +389,8 @@ function chart(rows){
   else {
     const days = rows.map(s=>s.day).filter(Boolean).sort();
     if (days.length){
-      const end = S.period === "all" ? new Date(days[days.length-1]+"T12:00:00") : new Date();
-      const start = S.period === "all" ? new Date(days[0]+"T12:00:00") : (()=>{const d=new Date(); d.setDate(d.getDate()-Number(S.period)+1); return d;})();
+      const end = S.period === "all" ? new Date(days[days.length-1]+"T12:00:00") : now();
+      const start = S.period === "all" ? new Date(days[0]+"T12:00:00") : (()=>{const d=now(); d.setDate(d.getDate()-Number(S.period)+1); return d;})();
       for (let d=new Date(start); localDay(d) <= localDay(end); d.setDate(d.getDate()+1)) buckets.set(localDay(d),{k:localDay(d),label:dayName(localDay(d)),tokens:0,n:0});
     }
   }
