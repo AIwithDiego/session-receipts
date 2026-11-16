@@ -3,6 +3,6 @@ __pycache__/
 *.pyc
 .DS_Store
 out/
-demo/
+/demo/
 CLAUDE.md
 docs/reviews/

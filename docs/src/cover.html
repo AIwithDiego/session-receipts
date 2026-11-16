@@ -1,0 +1,35 @@
+<!doctype html>
+<!-- The README cover, 1280x640. Render: see docs/src/README.md -->
+<html><head><meta charset="utf-8">
+<style>
+:root { --paper:#f4f2ee; --card:#fbfaf7; --ink:#141414; --soft:#5f5a52; --line:#dcd6cc; --red:#d33b2f; --green:#1f9d4c; }
+* { box-sizing: border-box; margin: 0; }
+html, body { width: 1280px; height: 640px; }
+body { background: var(--paper); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  display: grid; grid-template-columns: 590px 1fr; gap: 36px; padding: 60px 0 60px 64px; overflow: hidden; }
+.kicker { font: 600 17px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 1.5px; color: var(--soft); text-transform: uppercase; }
+h1 { font-size: 50px; line-height: 1.08; margin-top: 18px; letter-spacing: -1px; }
+.num { margin-top: 34px; display: grid; gap: 14px; }
+.row { display: flex; align-items: baseline; gap: 18px; }
+.row b { font-size: 50px; line-height: 1; min-width: 120px; text-align: right; letter-spacing: -1px; }
+.row span { font-size: 21px; color: var(--soft); }
+.row.red b { color: var(--red); }
+.row.green b { color: var(--green); }
+.foot { margin-top: 30px; font-size: 17px; color: var(--soft); }
+.foot code { font: 600 15px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 3px 7px; }
+.shot { align-self: center; height: 540px; border-radius: 16px 0 0 16px; overflow: hidden; border: 1px solid var(--line); border-right: 0; box-shadow: 0 24px 70px rgba(40,30,10,.18); background: var(--card); }
+.shot img { display: block; width: 1060px; margin-left: -462px; margin-top: -4px; }
+</style></head>
+<body>
+  <div>
+    <div class="kicker">session-receipts · Claude Code + Codex</div>
+    <h1>What did your agent do while you looked away?</h1>
+    <div class="num">
+      <div class="row"><b>177</b><span>sessions read in one trial week</span></div>
+      <div class="row red"><b>3</b><span>sessions broke my rules, one past my git hook</span></div>
+      <div class="row green"><b>0</b><span>bytes the tool sends off your machine</span></div>
+    </div>
+    <p class="foot">Every break links its log line. Python 3, nothing else.</p>
+  </div>
+  <div class="shot"><img src="../assets/receipt.png" alt=""></div>
+</body></html>

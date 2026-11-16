@@ -2,6 +2,7 @@
 """Build a demo dashboard from made-up sessions, for screenshots and for trying it out.
 
     python3 scripts/demo.py            # writes demo/ and prints the page to open
+    python3 scripts/demo.py --pages    # also copies it, frozen, to docs/demo/ (the hosted demo)
 
 Nothing here comes from a real log: projects, prompts and commands are invented,
 and the home folder is /Users/demo.
@@ -189,6 +190,17 @@ def main() -> int:
             text = text.replace(json.dumps(real)[1:-1], shown)
         f.write_text(text)
     print(r.stdout.strip() or r.stderr.strip())
+    if r.returncode == 0 and "--pages" in sys.argv:
+        pages = ROOT / "docs" / "demo"
+        shutil.rmtree(pages, ignore_errors=True)
+        (pages / "s").mkdir(parents=True)
+        shutil.copy(home / "index.html", pages / "index.html")
+        for f in (home / "s").glob("*.js"):
+            shutil.copy(f, pages / "s" / f.name)
+        data = (home / "data.js").read_text()
+        # Frozen: the page counts "7 days" from the build, so the demo never goes empty.
+        (pages / "data.js").write_text(data.replace("window.RECEIPTS={", 'window.RECEIPTS={"frozen":true,', 1))
+        print(f"hosted demo -> {pages}")
     return r.returncode
 
 
