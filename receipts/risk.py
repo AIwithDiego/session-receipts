@@ -30,6 +30,9 @@ DESTRUCTIVE = re.compile(
     re.I,
 )
 PIPE_TO_SHELL = re.compile(r"\b(curl|wget)\b[^|]*\|\s*(sudo\s+)?(ba|z)?sh\b")
+DOWNLOAD_TO_SHELL = re.compile(
+    r"(^|[|;&(\n])\s*(sudo\s+)?(\S*/)?(ba|z|da|k)?sh\s+(-\w+\s+)*-\w*c\s+['\"]?\$\(\s*(curl|wget)\b[^)]*\)"
+)
 SECRET_PATH = re.compile(
     r"(^|[/\s'\"=])\.env(\.[\w.-]+)?($|[\s'\";|&)])|id_(rsa|ed25519)\b|\.pem\b|\.p12\b|credentials(\.json)?\b|\.npmrc\b|\.netrc\b"
     r"|security\s+find-(generic|internet)-password|\.claude/\.env",
@@ -102,7 +105,7 @@ def risks(s: Session) -> list[Risk]:
                 out.append(Risk(a.at, WARNING, "git push", a.detail, a.ref))
             if DESTRUCTIVE.search(text):
                 out.append(Risk(a.at, CRITICAL, "Destructive command", a.detail, a.ref))
-            if PIPE_TO_SHELL.search(text):
+            if PIPE_TO_SHELL.search(text) or DOWNLOAD_TO_SHELL.search(plain_command(a.detail)):
                 out.append(Risk(a.at, SERIOUS, "Downloaded script piped to shell", a.detail, a.ref))
         if a.kind in ("command", "read", "edit") and SECRET_PATH.search(text):
             out.append(Risk(a.at, SERIOUS, "Secret file touched", a.detail, a.ref))
