@@ -91,6 +91,8 @@ Ask your agent for **"receipts for today"** (or **"for the week"**). It reads th
 4. **Judged rules** ([`SKILL.md`](SKILL.md), [`receipts/judge.py`](receipts/judge.py), [`receipts/verdicts.py`](receipts/verdicts.py)): the evidence goes to your agent as data, the verdict comes back with its log line.
 5. **Dashboard and archive** ([`receipts/dashboard.py`](receipts/dashboard.py), [`receipts/server.py`](receipts/server.py), [`receipts/archive.py`](receipts/archive.py)): a live page on `localhost:4747`, a static copy, and a redacted archive that keeps your history after Claude Code deletes the raw logs.
 
+Risky moments flag both `curl ... | sh` and `sh -c "$(curl ...)"` as running a downloaded script, including the corresponding `wget` forms. Piping downloaded data to a tool such as `jq` does not trigger that warning.
+
 ### Your rules
 
 Write them in `~/.session-receipts/rules.md`, one per line, in plain language. Add a check in backticks and the rule is proven from the logs; leave it out and your agent judges it.
@@ -105,8 +107,6 @@ Write them in `~/.session-receipts/rules.md`, one per line, in plain language. A
 ```
 
 Checks: `push-main`, `force-push`, `secret-files`, `secrets`, `command: <regex>`, `file: <glob>`, `edit: <glob>`, each optionally followed by `unless asked: <regex>` (allowed when an earlier prompt in the session matched, and not when it said "don't"). The checks look at what the shell runs: quoted text with a space in it (a commit message, a search pattern, `python -c` code) and heredocs fed to a program are data, unless `sh -c`, `eval`, `ssh`, a pipe into a shell or `$(...)` runs them. The `secrets` check reads quoted text too, so a fake test key in a command counts. No rules file yet? Your agent offers to write one from your `CLAUDE.md` or `AGENTS.md`.
-
-Risky moments flag both `curl ... | sh` and `sh -c "$(curl ...)"` as running a downloaded script, including the corresponding `wget` forms. Piping downloaded data to a tool such as `jq` does not trigger that warning.
 
 ## Results
 
