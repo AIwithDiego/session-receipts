@@ -7,6 +7,7 @@ description: Receipts for your Claude Code and Codex sessions, read from the log
 
 Everything runs locally with Python 3.10+ and nothing else. In the commands below, `RUN` means
 `python3 <this skill's folder>/run.py`, for example `python3 ~/.claude/skills/session-receipts/run.py`.
+On Windows, use `python` (or `py -3`) in place of `python3`.
 
 ## Safety first
 
@@ -62,7 +63,9 @@ unclear") is judged by you:
      "why": "Started editing app.py before asking what done looks like.", "ref": "/path/to/log.jsonl:42"}]
    EOF
    ```
-   Keep the heredoc quoted (`<<'EOF'`) so nothing in a `why` reaches the shell. Verdicts are saved
+   Keep the heredoc quoted (`<<'EOF'`) so nothing in a `why` reaches the shell. PowerShell has no
+   heredoc: write the JSON to a file with your file-writing tool (not the shell), run
+   `RUN verdict --batch <that file>`, then delete the file. Verdicts are saved
    to `~/.session-receipts/verdicts.json` and show on the receipts at once. `--again` on `judge`
    brings back rules that already have a verdict. If the report says `truncated`, judge again: the
    sessions you just judged drop out. If `judge` returns the same sessions twice, stop and report what's left
