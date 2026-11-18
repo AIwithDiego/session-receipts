@@ -215,7 +215,7 @@ function h(tag, attrs, ...kids){
 const fmt = n => n.toLocaleString("en-IE");
 const short = n => n >= 1e9 ? (n/1e9).toFixed(n>=1e10?0:1)+"B" : n >= 1e6 ? (n/1e6).toFixed(n>=1e7?0:1)+"M" : n >= 1e3 ? Math.round(n/1e3)+"K" : String(n);
 const time = iso => iso ? new Date(iso).toLocaleTimeString("en-IE",{hour:"2-digit",minute:"2-digit"}) : "";
-const dayName = d => new Date(d+"T12:00:00").toLocaleDateString("en-IE",{weekday:"short",day:"numeric",month:"short"});
+const dayName = d => d + " " + new Date(d+"T12:00:00").toLocaleDateString("en-IE",{weekday:"short"});
 const toolName = t => t === "codex" ? "Codex" : "Claude Code";
 const LEVEL = {critical:"Critical", serious:"Serious", warning:"Warning"};
 const localDay = dt => { const z = n => String(n).padStart(2,"0"); return `${dt.getFullYear()}-${z(dt.getMonth()+1)}-${z(dt.getDate())}`; };
@@ -225,7 +225,7 @@ try { Object.assign(S, JSON.parse(localStorage.getItem("receipts-ui")||"{}"), {q
 const save = () => { try { localStorage.setItem("receipts-ui", JSON.stringify({period:S.period,tool:S.tool,sched:S.sched})); } catch(e){} };
 
 function stamp(){
-$("#built").textContent = (D.live ? "live · updated " : "built ") + new Date(D.built).toLocaleString("en-IE",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}) + (()=>{ const n = D.sessions.filter(s=>s.archived).length; return n ? ` · ${n.toLocaleString("en-IE")} from the archive` : ""; })();
+$("#built").textContent = (D.live ? "live · updated " : "built ") + localDay(new Date(D.built)) + " " + time(D.built) + (()=>{ const n = D.sessions.filter(s=>s.archived).length; return n ? ` · ${n.toLocaleString("en-IE")} from the archive` : ""; })();
 }
 
 // A frozen copy (the hosted demo) counts its days from when it was built, not from today.
@@ -418,7 +418,7 @@ function chart(rows){
     const t = S_("text",{x:padL-6,y:y(nice*f)+3,"text-anchor":"end",class:"axis"}); t.textContent = short(nice*f); svg.append(t);
   }
   const n = Math.max(1,data.length), slot = (W-padL)/n, bw = Math.max(1, Math.min(28, slot-2));
-  const every = Math.ceil(n / Math.max(1, Math.floor((W-padL)/64)));
+  const every = Math.ceil(n / Math.max(1, Math.floor((W-padL)/(byHour ? 64 : 80))));
   const tip = h("div",{class:"tip"});
   data.forEach((b,i) => {
     const x = padL + i*slot + (slot-bw)/2, top = y(b.tokens), g = S_("g",{});
@@ -431,7 +431,7 @@ function chart(rows){
     hit.addEventListener("pointerenter",show); hit.addEventListener("pointerleave",hide); hit.addEventListener("focus",show); hit.addEventListener("blur",hide);
     if (!byHour) hit.addEventListener("click",()=>{ S.q=""; $("#q").value=""; const el=document.getElementById("day-"+b.k); if(el) el.scrollIntoView({behavior:"smooth"}); });
     g.append(hit, path); svg.append(g);
-    if (i % every === 0){ const t = S_("text",{x:padL+i*slot+slot/2,y:H-6,"text-anchor":"middle",class:"axis"}); t.textContent = byHour ? b.label : b.label.replace(/^\w+ /,""); svg.append(t); }
+    if (i % every === 0){ const t = S_("text",{x:padL+i*slot+slot/2,y:H-6,"text-anchor":"middle",class:"axis"}); t.textContent = byHour ? b.label : b.k; svg.append(t); }
   });
   $("#chart").replaceChildren(svg, tip);
 }
@@ -474,7 +474,7 @@ function riskBadges(s){
 function feed(rows){
   const items = rows.filter(s => s.risk.critical || s.risk.serious).sort((a,b)=> b.start.localeCompare(a.start)).slice(0,120);
   $("#feed").replaceChildren(...(items.length ? items.map(s => h("li",{onclick:()=>openReceipt(s.id), tabindex:0, onkeydown:e=>e.key==="Enter"&&openReceipt(s.id)},
-      h("div",{class:"when"}, dayName(s.day).replace(/^\w+ /,""), h("br"), time(s.start)),
+      h("div",{class:"when"}, s.day, h("br"), time(s.start)),
       h("div",{class:"what"}, h("div",{class:"proj"}, s.project, " ", h("span",{class:"badge tool"}, toolName(s.tool))),
         h("div",{}, riskBadges(s)), h("div",{class:"muted",style:"font-size:12px"}, s.riskLabels.join(" · ")))))
     : [h("li",{class:"empty",style:"display:block;cursor:default"},"Nothing risky in this period.")]));
@@ -596,7 +596,7 @@ function drawReceipt(r){
     h("div",{class:"head"},
       h("div",{class:"muted mono",style:"font-size:11.5px"}, `${toolName(r.tool).toUpperCase()} · RECEIPT`),
       h("h2",{}, r.title || r.project),
-      h("div",{class:"muted"}, `${r.project} · ${r.start ? new Date(r.start).toLocaleString("en-IE",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}) : ""}${dur ? ` · ${dur} min` : ""}`)),
+      h("div",{class:"muted"}, `${r.project} · ${r.start ? dayName(localDay(new Date(r.start))) + " " + time(r.start) : ""}${dur ? ` · ${dur} min` : ""}`)),
     flagged ? rulesSection(r, sec) : null,
     sec("You asked", r.prompts.length ? r.prompts.map(p => h("div",{class:"prompt"}, p.kind!=="typed" ? h("span",{class:"badge tool"},p.kind) : null, p.text, p.cut ? h("span",{class:"muted"}," … (cut)") : null, " ", refEl(p.ref))) : h("p",{class:"muted"},"No typed prompts in this period.")),
     flagged ? null : rulesSection(r, sec),
