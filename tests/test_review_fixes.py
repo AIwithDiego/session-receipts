@@ -127,6 +127,7 @@ class Forget(unittest.TestCase):
 
 
 class DaylightSaving(unittest.TestCase):
+    @unittest.skipUnless(hasattr(time, "tzset"), "time.tzset is POSIX only")
     def test_each_day_uses_its_own_offset(self):
         old = os.environ.get("TZ")
         os.environ["TZ"] = "Europe/Dublin"

@@ -61,7 +61,7 @@ class Judge(unittest.TestCase):
         code, out, err = self.run_cli("verdict", "--batch", "-", "--dir", str(self.home), stdin=batch)
         self.assertEqual(code, 0, err)
 
-        stored = (self.home / "verdicts.json").read_text()
+        stored = (self.home / "verdicts.json").read_text(encoding="utf-8")
         self.assertNotIn(FAKE_KEY, stored)
 
         self.assertNotIn("s1", [s["session"] for s in self.judge()["sessions"]])
@@ -69,13 +69,13 @@ class Judge(unittest.TestCase):
 
         sessions = read_sessions(Window.everything(), ("claude-code", "codex"), self.logs / "claude", self.logs / "codex")
         dashboard.build(sessions, self.home)
-        detail = (self.home / "s" / "s1.js").read_text()
+        detail = (self.home / "s" / "s1.js").read_text(encoding="utf-8")
         res = json.loads(detail[detail.index(",") + 1: detail.rindex(")")])
         rule = next(r for r in res["rules"] if r["id"] == rid)
         self.assertEqual(rule["status"], "broken")
         self.assertTrue(rule["why"].startswith("Edited app.py without asking"))
         self.assertEqual(f"{rule['hits'][0]['ref']['file']}:{rule['hits'][0]['ref']['line']}", ref)
-        data = (self.home / "data.js").read_text()
+        data = (self.home / "data.js").read_text(encoding="utf-8")
         self.assertIn(rid, json.loads(data[len("window.RECEIPTS="):-1])["sessions"][-2]["broken"]
                       + json.loads(data[len("window.RECEIPTS="):-1])["sessions"][-1]["broken"])
 
