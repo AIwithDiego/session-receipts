@@ -46,7 +46,7 @@ class ClaudeCodeReader(unittest.TestCase):
         got = {d.what: d.source for d in self.s.denials}
         self.assertEqual(got, {"cat .env": "hook", "git push origin main": "user"})
         d = next(d for d in self.s.denials if d.what == "cat .env")
-        line = Path(d.ref.file).read_text().splitlines()[d.ref.line - 1]
+        line = Path(d.ref.file).read_text(encoding="utf-8").splitlines()[d.ref.line - 1]
         self.assertIn("SECURITY GUARD", line)
 
     def test_tokens_counted_once_per_message(self):

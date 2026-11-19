@@ -189,6 +189,7 @@ Security issues: see [SECURITY.md](SECURITY.md).
    ```sh
    git clone --branch v1.0.0 --depth 1 https://github.com/AIwithDiego/session-receipts ~/.claude/skills/session-receipts
    ```
+   On Windows, clone to `%USERPROFILE%\.claude\skills\session-receipts`, and use `python` (or `py -3`) where this page says `python3`. `serve --install` is macOS only; `serve` runs while its terminal is open.
 2. **Share it with Codex** (optional, same copy):
    ```sh
    ln -s ~/.claude/skills/session-receipts ~/.agents/skills/session-receipts

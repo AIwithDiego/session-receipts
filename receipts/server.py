@@ -212,8 +212,8 @@ def serve(port: int = PORT, open_browser: bool = False, **roots) -> int:
     print(f"Session receipts at {url} (this Mac only). Ctrl-C to stop.", flush=True)
     threading.Thread(target=store.refresh, daemon=True).start()  # warm up while the browser opens
     if open_browser:
-        import subprocess
-        subprocess.run(["open", url], check=False)
+        import webbrowser
+        webbrowser.open(url)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
@@ -234,6 +234,14 @@ def _python() -> str:
     return found if found and Path(found).resolve() == Path(sys.executable).resolve() else sys.executable
 
 
+def _macos_only() -> bool:
+    if sys.platform == "darwin":
+        return False
+    print("serve --install and --uninstall use launchd, so they work on macOS only. "
+          "Run `serve` to keep the dashboard up while the terminal is open.", file=sys.stderr)
+    return True
+
+
 def install(port: int = PORT) -> int:
     import os
     import plistlib
@@ -241,6 +249,8 @@ def install(port: int = PORT) -> int:
 
     import shutil
 
+    if _macos_only():  # before anything is written
+        return 1
     log = dashboard.OUT / "serve.log"
     dashboard.OUT.mkdir(mode=0o700, parents=True, exist_ok=True)
     # Run from a copy, so the service doesn't change when you switch branches in a checkout.
@@ -287,6 +297,8 @@ def uninstall() -> int:
     import os
     import subprocess
 
+    if _macos_only():
+        return 1
     subprocess.run(["launchctl", "bootout", f"gui/{os.getuid()}/{LABEL}"], capture_output=True)
     PLIST.unlink(missing_ok=True)
     import shutil
