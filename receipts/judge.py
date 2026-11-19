@@ -93,7 +93,7 @@ def verdict(a, ap) -> int:
     path = (a.dir or dashboard.OUT) / "verdicts.json"
     try:
         if a.batch:
-            raw = sys.stdin.read() if a.batch == "-" else Path(a.batch).read_text(encoding="utf-8")
+            raw = sys.stdin.read() if a.batch == "-" else rulebook.read_text(Path(a.batch))
             items = json.loads(raw)
             if not isinstance(items, list):
                 raise ValueError("--batch takes a JSON list")

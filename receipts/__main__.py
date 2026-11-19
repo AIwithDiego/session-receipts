@@ -21,6 +21,11 @@ from .window import Window, parse_ts
 
 
 def main(argv=None) -> int:
+    # Windows uses the locale code page (often cp1252) for piped stdin and stdout, which can't hold
+    # every character in a log. Use UTF-8 everywhere.
+    for stream, errors in ((sys.stdout, "replace"), (sys.stdin, "strict")):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors=errors)
     ap = argparse.ArgumentParser(prog="receipts")
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("read", help="read one day of sessions into the common shape")
@@ -33,7 +38,7 @@ def main(argv=None) -> int:
     v = sub.add_parser("serve", help="live dashboard at http://localhost:4747 (this Mac only)")
     v.add_argument("--port", type=int, default=4747)
     v.add_argument("--open", action="store_true", help="open it in the browser")
-    v.add_argument("--install", action="store_true", help="keep it running, starting at login (launchd)")
+    v.add_argument("--install", action="store_true", help="keep it running, starting at login (launchd, macOS only)")
     v.add_argument("--uninstall", action="store_true", help="stop it and remove the login item")
     v.add_argument("--claude-dir", type=Path)
     v.add_argument("--codex-dir", type=Path)
@@ -117,8 +122,8 @@ def main(argv=None) -> int:
 
 
 def dashboard(a) -> int:
-    import subprocess
     import time
+    import webbrowser
 
     from . import dashboard as dash
 
@@ -137,7 +142,7 @@ def dashboard(a) -> int:
     warn = f"  ({info['unreadable']} archive file(s) unreadable, skipped)" if info["unreadable"] else ""
     print(f"{info['live']} sessions{extra} -> {page}  ({time.time() - t0:.1f}s){warn}")
     if a.open:
-        subprocess.run(["open", str(page)], check=False)
+        webbrowser.open(Path(page).resolve().as_uri())
     return 0
 
 

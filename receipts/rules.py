@@ -147,9 +147,17 @@ def _compile(r: Rule) -> None:
         r.error = f"Bad pattern in `{r.check}`: {e}"
 
 
+def read_text(path: Path) -> str:
+    """UTF-8, with or without a BOM, or UTF-16 with a BOM (what `>` writes in Windows PowerShell 5.1)."""
+    raw = path.read_bytes()
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return raw.decode("utf-16")
+    return raw.decode("utf-8-sig")
+
+
 def load(path: Path) -> tuple[list[Rule], Path]:
     src = path if path.is_file() else EXAMPLE
-    return parse(src.read_text(encoding="utf-8")), src
+    return parse(read_text(src)), src
 
 
 def check(s: Session, rules: list[Rule], verdicts: dict | None = None) -> list[Result]:

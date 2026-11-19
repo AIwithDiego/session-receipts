@@ -1,12 +1,15 @@
 """The live dashboard server (SR-10), on synthetic logs only."""
 
+import contextlib
 import http.client
+import io
 import json
 import shutil
 import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from receipts import server
 
@@ -81,7 +84,7 @@ class Live(unittest.TestCase):
         first = self.data()
         self.assertEqual(self.store.reads, reads)  # nothing changed, nothing read
         log = next((self.logs / "claude").glob("*/*.jsonl"))
-        line = json.loads(log.read_text().splitlines()[0])
+        line = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
         line.update(type="user", timestamp="2026-11-05T23:00:00Z", isMeta=False,
                     message={"role": "user", "content": "one more thing " + FAKE_KEY})
         with open(log, "a") as fh:
@@ -100,6 +103,17 @@ class Live(unittest.TestCase):
         d = self.data()
         self.assertEqual({s["id"] for s in d["sessions"]}, ids)
         self.assertTrue(all(s.get("archived") for s in d["sessions"]))
+
+
+class InstallOffMac(unittest.TestCase):
+    def test_refuses_before_writing_anything(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out, plist = Path(tmp) / "out", Path(tmp) / "agents" / "x.plist"
+            with mock.patch("sys.platform", "win32"), mock.patch.object(server, "PLIST", plist), \
+                    mock.patch.object(server.dashboard, "OUT", out), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(server.install(), 1)
+                self.assertEqual(server.uninstall(), 1)
+            self.assertEqual(list(Path(tmp).iterdir()), [])
 
 
 if __name__ == "__main__":
