@@ -89,11 +89,24 @@ def judge(a) -> int:
     return 0
 
 
+BATCH_FILE = "verdict-batch.json"
+
+
 def verdict(a, ap) -> int:
     path = (a.dir or dashboard.OUT) / "verdicts.json"
     try:
         if a.batch:
-            raw = sys.stdin.read() if a.batch == "-" else rulebook.read_text(Path(a.batch))
+            if a.batch == "-":
+                raw = sys.stdin.read().removeprefix("\ufeff")  # Windows PowerShell 5.1 pipes a BOM first
+            else:
+                # --delete removes one known file only, so nothing in a log can talk an agent into deleting another.
+                if a.delete and Path(a.batch).resolve() != (path.parent / BATCH_FILE).resolve():
+                    raise ValueError(f"--delete only removes {path.parent / BATCH_FILE}")
+                try:
+                    raw = rulebook.read_text(Path(a.batch))
+                finally:
+                    if a.delete:  # the file holds each `why` before redaction: gone whatever happens next
+                        Path(a.batch).unlink(missing_ok=True)
             items = json.loads(raw)
             if not isinstance(items, list):
                 raise ValueError("--batch takes a JSON list")

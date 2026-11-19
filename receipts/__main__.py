@@ -3,7 +3,7 @@ python3 -m receipts dashboard [--days N] [--open]
 python3 -m receipts read [today|yesterday|week|YYYY-MM-DD] [--json [--raw]]
 python3 -m receipts judge [today|yesterday|week|YYYY-MM-DD|all] [--session ID] [--again]
 python3 -m receipts verdict SESSION RULE kept|broken --why "..." [--ref log.jsonl:123]
-python3 -m receipts verdict --batch verdicts.json   (or - for stdin)
+python3 -m receipts verdict --batch verdicts.json [--delete]   (or - for stdin)
 python3 -m receipts forget [SESSION ...] [--before YYYY-MM-DD]
 python3 -m receipts status"""
 
@@ -66,6 +66,8 @@ def main(argv=None) -> int:
     d.add_argument("--why", default="", help="one plain sentence a person can check against the log line")
     d.add_argument("--ref", default="", help="the log line that shows it: path/to/log.jsonl:123")
     d.add_argument("--batch", help="a JSON list of {session, rule, status, why, ref}; - reads stdin")
+    d.add_argument("--delete", action="store_true",
+                   help="with --batch verdict-batch.json in the receipts folder: delete it once read, also when a verdict is refused")
     d.add_argument("--dir", type=Path, help="where verdicts.json lives (default ~/.session-receipts)")
     st = sub.add_parser("status", help="is the live dashboard running, and where things are")
     st.add_argument("--port", type=int, default=4747)

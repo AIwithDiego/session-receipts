@@ -88,6 +88,30 @@ class Judge(unittest.TestCase):
         store.refresh(force=True)
         self.assertEqual(next(r for r in store.detail("s1")["rules"] if r["id"] == rid)["status"], "kept")
 
+    def test_piped_batch_may_start_with_a_bom(self):
+        # Windows PowerShell 5.1 puts a BOM first when it pipes text.
+        code, out, err = self.run_cli("verdict", "--batch", "-", "--dir", str(self.home), stdin="\ufeff[]")
+        self.assertEqual(code, 0, err)
+
+    def test_delete_removes_the_batch_file_whatever_happens(self):
+        rid = self.judge()["rules"][0]["id"]
+        good = json.dumps([{"session": "s1", "rule": rid, "status": "kept", "why": "Asked first."}])
+        bad = json.dumps([{"session": "s1", "rule": rid, "status": "maybe", "why": f"key {FAKE_KEY}"}])
+        f = self.home / "verdict-batch.json"
+        for text, want in ((good, 0), (bad, 2), ("not json " + FAKE_KEY, 2)):
+            f.write_text(text, encoding="utf-8")
+            code, _, err = self.run_cli("verdict", "--batch", str(f), "--delete", "--dir", str(self.home))
+            self.assertEqual(code, want, err)
+            self.assertFalse(f.exists(), text[:20])
+        f.write_text(good, encoding="utf-8")  # without --delete the file is the user's and stays
+        self.assertEqual(self.run_cli("verdict", "--batch", str(f), "--dir", str(self.home))[0], 0)
+        self.assertTrue(f.exists())
+        self.assertEqual(self.run_cli("verdict", "--batch", "-", "--delete", "--dir", str(self.home), stdin="[]")[0], 0)
+        other = self.home / "other.json"  # --delete never removes any other file
+        other.write_text("[]", encoding="utf-8")
+        self.assertEqual(self.run_cli("verdict", "--batch", str(other), "--delete", "--dir", str(self.home))[0], 2)
+        self.assertTrue(other.exists())
+
     def test_bad_verdicts_are_refused_and_nothing_is_written(self):
         for batch in ('[{"session": "s1", "rule": "x", "status": "maybe", "why": "?"}]',
                       '[{"session": "s1", "rule": "x", "status": "kept"}]',

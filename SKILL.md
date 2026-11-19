@@ -64,8 +64,10 @@ unclear") is judged by you:
    EOF
    ```
    Keep the heredoc quoted (`<<'EOF'`) so nothing in a `why` reaches the shell. PowerShell has no
-   heredoc: write the JSON to a file with your file-writing tool (not the shell), run
-   `RUN verdict --batch <that file>`, then delete the file. Verdicts are saved
+   heredoc: write the JSON to `%USERPROFILE%\.session-receipts\verdict-batch.json` with your
+   file-writing tool (not the shell), then run `RUN verdict --batch <that file> --delete`. `--delete`
+   removes the file once it is read, also when a verdict is refused, so nothing unredacted stays on
+   disk. `--delete` works on that one file only. Verdicts are saved
    to `~/.session-receipts/verdicts.json` and show on the receipts at once. `--again` on `judge`
    brings back rules that already have a verdict. If the report says `truncated`, judge again: the
    sessions you just judged drop out. If `judge` returns the same sessions twice, stop and report what's left
