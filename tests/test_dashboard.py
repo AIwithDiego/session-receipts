@@ -109,6 +109,14 @@ class Build(unittest.TestCase):
             if os.name != "nt":  # Windows ignores POSIX file modes
                 self.assertEqual(oct(Path(tmp).stat().st_mode)[-3:], "700")
 
+    def test_every_risk_label_is_explained(self):
+        src = (Path(dashboard.__file__).parent / "risk.py").read_text(encoding="utf-8")
+        labels = {x.strip() for x in re.findall(r'Risk\([^,]+, \w+, f?"([^"(]+)', src)}
+        self.assertEqual(len(labels), 6)  # a new label in risk.py needs a line in EXPLAIN
+        page = (Path(dashboard.__file__).parent / "assets" / "dashboard.html").read_text(encoding="utf-8")
+        explained = set(re.findall(r'^  "([^"]+)": "', re.search(r"const EXPLAIN = \{(.*?)\n\};", page, re.S).group(1), re.M))
+        self.assertEqual(labels, explained)
+
 
 def load_data(out: Path) -> dict:
     return json.loads(re.match(r"window.RECEIPTS=(.*);$", (out / "data.js").read_text(encoding="utf-8"), re.S).group(1))
