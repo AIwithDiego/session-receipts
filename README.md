@@ -14,7 +14,7 @@
 [![In a trial week on 177 real sessions, 3 broke the owner's rules, one of them past his own git hook, and the tool sent 0 bytes off the machine](docs/assets/cover.png)](https://aiwithdiego.github.io/session-receipts/demo/)
 
 ```sh
-git clone --branch v1.1.0 --depth 1 https://github.com/AIwithDiego/session-receipts ~/.claude/skills/session-receipts
+git clone --branch v1.1.1 --depth 1 https://github.com/AIwithDiego/session-receipts ~/.claude/skills/session-receipts
 ```
 
 A skill for Claude Code and Codex, plus a local dashboard. It reads the session logs both tools already keep on your machine and turns each session into one page of evidence: what you asked, what the agent did, and whether it kept your rules. Built in Dublin with Claude Code, November 2026, then run for a week on my own 177 sessions before release.
@@ -175,7 +175,7 @@ Session receipts reads logs that already sit on your computer and writes its res
 
 Secrets are redacted before anything is written or shown: API keys and tokens in the usual formats (Anthropic, OpenAI, GitHub, AWS, Stripe, Slack, Google, Supabase and more), private keys, JWTs, passwords in URLs, Authorization and Cookie headers, `?token=` style query values, `--password` flags and `NAME_KEY=value` pairs. Text is redacted before it is cut short, so a secret can't survive by being split. When the patterns improve, the archive on disk is scrubbed again on the next build. Redaction is best effort, not a guarantee: a password typed as plain text with nothing around it looks like any other word.
 
-Everything is written to `~/.session-receipts`, readable only by you (folders 0700, files 0600). The live dashboard listens on 127.0.0.1 only and refuses other host names and cross-site requests. A page can only read from it; nothing a request sends changes your rules, verdicts or receipts. Loopback is not a login, though: on a Mac shared with other user accounts, they could read it too, so use the static `dashboard` command there instead of `serve`.
+Everything is written to `~/.session-receipts`, readable only by you (folders 0700, files 0600). On Windows those modes do nothing: privacy comes from your profile folder, which only you and administrators can read, so keep `--out` and `--dir` inside it. The live dashboard listens on 127.0.0.1 only and refuses other host names and cross-site requests. A page can only read from it; nothing a request sends changes your rules, verdicts or receipts. Loopback is not a login, though: on a Mac shared with other user accounts, they could read it too, so use the static `dashboard` command there instead of `serve`.
 
 **GDPR.** Used on your own hobby projects, it's a personal activity. Used for work, the receipts can hold personal data you process professionally, and the rest of this section applies. Watch for other people's personal data in your sessions: a client's customer records, colleagues' names and emails, support tickets or database dumps you worked on. That data then also lands in your receipts and in the archive, which keeps them after the raw logs are deleted. If you do client work, treat `~/.session-receipts` like the client data itself: keep it on an encrypted disk, don't share screenshots of it, and delete receipts you no longer need (for example `python3 run.py forget --before` a date 12 months back, once a month). If you run it on a shared or managed machine, check with whoever is responsible for data protection there.
 
@@ -187,7 +187,7 @@ Security issues: see [SECURITY.md](SECURITY.md).
 
 1. **Install the skill** for Claude Code:
    ```sh
-   git clone --branch v1.1.0 --depth 1 https://github.com/AIwithDiego/session-receipts ~/.claude/skills/session-receipts
+   git clone --branch v1.1.1 --depth 1 https://github.com/AIwithDiego/session-receipts ~/.claude/skills/session-receipts
    ```
    On Windows, clone to `%USERPROFILE%\.claude\skills\session-receipts`, and use `python` (or `py -3`) where this page says `python3`. `serve --install` is macOS only; `serve` runs while its terminal is open.
 2. **Share it with Codex** (optional, same copy):

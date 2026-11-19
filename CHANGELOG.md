@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1 · 19 Nov 2026
+
+Follow-ups from the review of the Windows work.
+
+- `verdict --batch FILE --delete` removes the file once it is read, also when a verdict is refused. It only works on `verdict-batch.json` in the receipts folder. On PowerShell the skill now writes the verdicts there and always uses `--delete`, so text that is not redacted yet never stays on disk (#17).
+- `verdict --batch -` accepts piped input that starts with a BOM, which Windows PowerShell 5.1 sends (#19).
+- README and SECURITY.md say where file privacy comes from on Windows: your profile folder, not file modes (#18).
+
 ## 1.1.0 · 19 Nov 2026
 
 Runs on Windows. All three changes came from an outside contributor, @deyenonevik (#11, #13, #14).
