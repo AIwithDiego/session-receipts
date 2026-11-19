@@ -47,7 +47,7 @@ h1 span{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--ink-3
 .chart svg{display:block;width:100%;height:190px;overflow:visible}
 .chart .axis{fill:var(--ink-3);font-size:10.5px;font-family:var(--mono)}
 .chart .gridl{stroke:var(--line);stroke-width:1}
-.chart .bar{fill:var(--accent)}
+.chart .bar{fill:var(--accent);pointer-events:none}
 .chart .hit{fill:transparent;cursor:pointer}
 .chart .hit:hover+.bar,.chart g.on .bar{fill:color-mix(in srgb,var(--accent) 75%,var(--surface))}
 .tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--surface);border-radius:8px;padding:7px 10px;font-size:12px;white-space:nowrap;transform:translate(-50%,-100%);margin-top:-8px;opacity:0;transition:opacity .1s}
