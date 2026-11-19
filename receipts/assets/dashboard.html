@@ -71,6 +71,8 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--accent-soft)}
 .feed .when{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);padding-top:2px}
 .feed .what{min-width:0}
 .feed .proj{font-weight:600;font-size:13px}
+.feed details.why summary{font-size:12px;margin:2px 0}
+.feed details.why p{margin:0 0 6px;max-width:60ch}
 .day{margin-top:18px}
 .day h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin:0 0 6px;font-weight:600;display:flex;justify-content:space-between}
 .srow{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer}
@@ -178,7 +180,7 @@ details summary{cursor:pointer;color:var(--accent);font-size:12.5px;margin:4px 0
 
   <div class="grid2">
     <div class="card">
-      <h2>Risky moments</h2><p class="hint">Critical and serious only: blocked actions, pushes to main, destructive commands, secret files. Click for the receipt.</p>
+      <h2>Risky moments</h2><p class="hint">Critical and serious only: blocked actions, pushes to main, destructive commands, secret files. A label means this kind of command can do harm, not that harm happened. Click for the receipt.</p>
       <ul class="feed" id="feed"></ul>
     </div>
     <div class="card">
@@ -218,6 +220,17 @@ const time = iso => iso ? new Date(iso).toLocaleTimeString("en-IE",{hour:"2-digi
 const dayName = d => d + " " + new Date(d+"T12:00:00").toLocaleDateString("en-IE",{weekday:"short"});
 const toolName = t => t === "codex" ? "Codex" : "Claude Code";
 const LEVEL = {critical:"Critical", serious:"Serious", warning:"Warning"};
+const LEVELS_NOTE = "A label means this kind of command can do harm, not that harm happened.";
+// One line per label in risk.py: what it means, when it is usually fine, when to look closer.
+const EXPLAIN = {
+  "Destructive command": "A delete or reset, such as rm -rf, git reset --hard, git clean -f, git branch -D or drop table. Usually fine when it targets a temp folder, or a file that is rebuilt straight after. Check it when it targets project files or data you did not ask to remove.",
+  "Push to main or force push": "Code went straight to main or master, or a force push rewrote history on the remote. Usually fine when you asked for it in a repo only you use. Check it in a shared repo, or when you did not ask for a push.",
+  "git push": "Code was sent to a remote, such as GitHub. Usually fine when you asked for the push. Check it when you did not.",
+  "Downloaded script piped to shell": "A script was downloaded and run at once, without being read first (curl … | sh). Usually fine for a known install page you asked for. Check it when you do not know the source.",
+  "Secret file touched": "A file that often holds keys or passwords was read, edited or named in a command: .env, .pem, .p12, credentials.json, .npmrc, .netrc or an SSH key. Usually fine when it was needed for a task you asked for. Check it when its contents were printed or sent somewhere.",
+  "Blocked": "A hook, your permission settings, the sandbox or you stopped this action, so it did not run. Check it when it keeps happening: a rule may be too strict, or the agent keeps retrying.",
+};
+const explain = label => EXPLAIN[label] || (label.startsWith("Blocked") ? EXPLAIN.Blocked : null);
 const localDay = dt => { const z = n => String(n).padStart(2,"0"); return `${dt.getFullYear()}-${z(dt.getMonth()+1)}-${z(dt.getDate())}`; };
 
 let S = {period:"7", tool:"all", sched:true, q:"", table:false, shown:40, ids:null, idsLabel:""};
@@ -473,10 +486,13 @@ function riskBadges(s){
 
 function feed(rows){
   const items = rows.filter(s => s.risk.critical || s.risk.serious).sort((a,b)=> b.start.localeCompare(a.start)).slice(0,120);
-  $("#feed").replaceChildren(...(items.length ? items.map(s => h("li",{onclick:()=>openReceipt(s.id), tabindex:0, onkeydown:e=>e.key==="Enter"&&openReceipt(s.id)},
+  $("#feed").replaceChildren(...(items.length ? items.map(s => h("li",{onclick:()=>openReceipt(s.id, true), tabindex:0, onkeydown:e=>e.key==="Enter"&&openReceipt(s.id, true)},
       h("div",{class:"when"}, s.day, h("br"), time(s.start)),
       h("div",{class:"what"}, h("div",{class:"proj"}, s.project, " ", h("span",{class:"badge tool"}, toolName(s.tool))),
-        h("div",{}, riskBadges(s)), h("div",{class:"muted",style:"font-size:12px"}, s.riskLabels.join(" · ")))))
+        h("div",{}, riskBadges(s)), h("div",{class:"muted",style:"font-size:12px"}, s.riskLabels.map(l => explain(l)
+          // open the explanation here without opening the receipt
+          ? h("details",{class:"why", onclick:e=>e.stopPropagation(), onkeydown:e=>e.stopPropagation()}, h("summary",{}, l), h("p",{}, explain(l)))
+          : h("div",{}, l))))))
     : [h("li",{class:"empty",style:"display:block;cursor:default"},"Nothing risky in this period.")]));
 }
 
@@ -537,8 +553,10 @@ function sessions(rows){
 const cache = {};
 window.__receipt = (id, data) => { cache[id] = data; if (pendingId === id) drawReceipt(data); };
 let pendingId = null;
-function openReceipt(id){
+let jumpToRisks = false;
+function openReceipt(id, risks){
   pendingId = id;
+  jumpToRisks = !!risks; // opened from the Risky moments card: show that section first
   const dlg = $("#dlg");
   $("#receipt").replaceChildren(h("p",{class:"muted"},"Loading…"));
   if (!dlg.open) dlg.showModal();
@@ -600,8 +618,9 @@ function drawReceipt(r){
     flagged ? rulesSection(r, sec) : null,
     sec("You asked", r.prompts.length ? r.prompts.map(p => h("div",{class:"prompt"}, p.kind!=="typed" ? h("span",{class:"badge tool"},p.kind) : null, p.text, p.cut ? h("span",{class:"muted"}," … (cut)") : null, " ", refEl(p.ref))) : h("p",{class:"muted"},"No typed prompts in this period.")),
     flagged ? null : rulesSection(r, sec),
-    sec("Risky moments", r.risks.length ? r.risks.map(x => h("div",{class:"line"}, h("div",{class:"tm"},time(x.at)),
-        h("div",{}, h("span",{class:"badge "+x.level}, h("i"), `${LEVEL[x.level]} · ${x.label}`), " ", refEl(x.ref), h("div",{}, h("code",{}, x.detail.slice(0,400))))))
+    sec("Risky moments", r.risks.length ? [h("p",{class:"muted", id:"risky"}, LEVELS_NOTE), r.risks.map(x => h("div",{class:"line"}, h("div",{class:"tm"},time(x.at)),
+        h("div",{}, h("span",{class:"badge "+x.level}, h("i"), `${LEVEL[x.level]} · ${x.label}`), " ", refEl(x.ref), h("div",{}, h("code",{}, x.detail.slice(0,400))),
+          explain(x.label) ? h("details",{}, h("summary",{},"What this label means"), h("p",{class:"muted"}, explain(x.label))) : null)))]
       : h("p",{class:"ok"},"✓ Nothing risky.")),
     r.denials.length ? sec("Blocked", r.denials.map(d => h("div",{class:"line"}, h("div",{class:"tm"},time(d.at)), h("div",{}, h("code",{},d.what), " ", refEl(d.ref), h("div",{class:"err"}, `${d.source}: ${d.reason.slice(0,300)}`))))) : null,
     sec(`Files changed (${r.files.length})`, r.files.length ? r.files.map(f => h("div",{class:"mono",style:"padding:2px 0",title:f}, r.cwd && f.startsWith(r.cwd+"/") ? f.slice(r.cwd.length+1) : f)) : h("p",{class:"muted"},"None.")),
@@ -616,6 +635,7 @@ function drawReceipt(r){
         .filter(([,v])=>v).map(([k,v]) => [h("dt",{},k), h("dd",{},String(v))])))
   ].filter(Boolean));
   $("#receipt").scrollTop = 0;
+  if (jumpToRisks){ jumpToRisks = false; $("#risky")?.closest("section").scrollIntoView({block:"start"}); }
 }
 
 /* ---------- wiring ---------- */
