@@ -14,7 +14,7 @@
 [![In a trial week on 177 real sessions, 3 broke the owner's rules, one of them past his own git hook, and the tool sent 0 bytes off the machine](docs/assets/cover.png)](https://aiwithdiego.github.io/session-receipts/demo/)
 
 ```sh
-git clone --branch v1.0.0 --depth 1 https://github.com/AIwithDiego/session-receipts ~/.claude/skills/session-receipts
+git clone --branch v1.1.0 --depth 1 https://github.com/AIwithDiego/session-receipts ~/.claude/skills/session-receipts
 ```
 
 A skill for Claude Code and Codex, plus a local dashboard. It reads the session logs both tools already keep on your machine and turns each session into one page of evidence: what you asked, what the agent did, and whether it kept your rules. Built in Dublin with Claude Code, November 2026, then run for a week on my own 177 sessions before release.
@@ -187,7 +187,7 @@ Security issues: see [SECURITY.md](SECURITY.md).
 
 1. **Install the skill** for Claude Code:
    ```sh
-   git clone --branch v1.0.0 --depth 1 https://github.com/AIwithDiego/session-receipts ~/.claude/skills/session-receipts
+   git clone --branch v1.1.0 --depth 1 https://github.com/AIwithDiego/session-receipts ~/.claude/skills/session-receipts
    ```
    On Windows, clone to `%USERPROFILE%\.claude\skills\session-receipts`, and use `python` (or `py -3`) where this page says `python3`. `serve --install` is macOS only; `serve` runs while its terminal is open.
 2. **Share it with Codex** (optional, same copy):
