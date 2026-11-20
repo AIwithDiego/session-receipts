@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
+from unittest import mock
 from pathlib import Path
 
 from receipts import dashboard, read_sessions
@@ -108,6 +109,25 @@ class Build(unittest.TestCase):
             self.assertTrue((Path(tmp) / "s" / f"{row['id']}.js").exists())
             if os.name != "nt":  # Windows ignores POSIX file modes
                 self.assertEqual(oct(Path(tmp).stat().st_mode)[-3:], "700")
+
+
+class ProjectName(unittest.TestCase):
+    def test_drive_letter_case_is_one_project(self):
+        self.assertEqual(dashboard._project(r"c:\Work\site"), dashboard._project(r"C:\Work\site"))
+
+    @unittest.skipIf(os.name == "nt", "POSIX home")
+    def test_posix_home(self):
+        with mock.patch.object(dashboard.Path, "home", return_value=Path("/Users/demo")):
+            self.assertEqual(dashboard._project("/Users/demo"), "~")
+            self.assertEqual(dashboard._project("/Users/demo/site"), "site")
+            self.assertEqual(dashboard._project("/Users/demo2/site"), "/Users/demo2/site")
+
+    @unittest.skipIf(os.name != "nt", "Windows home")
+    def test_windows_home(self):
+        with mock.patch.object(dashboard.Path, "home", return_value=Path(r"C:\Users\demo")):
+            self.assertEqual(dashboard._project(r"c:\Users\demo"), "~")
+            self.assertEqual(dashboard._project(r"c:\Users\Demo\site"), "site")
+            self.assertEqual(dashboard._project(r"C:\Users\demo2\site"), r"C:\Users\demo2\site")
 
 
 def load_data(out: Path) -> dict:

@@ -212,10 +212,14 @@ def _repeat_key(s: Session) -> str:
 def _project(cwd: str) -> str:
     if not cwd:
         return "?"
+    if re.match(r"[a-z]:[\\/]", cwd):
+        cwd = cwd[0].upper() + cwd[1:]  # Windows: VS Code logs c:\, the terminal C:\. One project, not two.
     home = str(Path.home())
-    if cwd == home:
+    # normcase: on Windows, case and / vs \ do not matter; elsewhere it changes nothing.
+    here, base = os.path.normcase(cwd), os.path.normcase(home)
+    if here == base:
         return "~"
-    return cwd[len(home) + 1:] if cwd.startswith(home + "/") else cwd
+    return cwd[len(home) + 1:] if here.startswith(base + os.sep) else cwd
 
 
 def _safe(sid: str) -> str:
