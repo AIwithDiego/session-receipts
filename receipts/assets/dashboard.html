@@ -141,7 +141,7 @@ details summary{cursor:pointer;color:var(--accent);font-size:12.5px;margin:4px 0
   <header class="top">
     <div>
       <h1>Session receipts <span id="built"></span></h1>
-      <div class="sub">What your agents did, from the logs Claude Code and Codex keep on this Mac. Nothing leaves it. Secrets are redacted.</div>
+      <div class="sub">What your agents did, from the logs Claude Code and Codex keep on this machine. Nothing leaves it. Secrets are redacted.</div>
     </div>
   </header>
 
@@ -329,7 +329,7 @@ function recs(rows){
   if (sec.length >= 3){
     out.push({type:"risk", impact:.35, ids:sec.map(s=>s.id), lbl:"Secret files",
       title:`Agents touched secret files in ${sec.length} sessions`,
-      why:`.env files, keys or the Keychain. Anything an agent reads lands in its log on this Mac.`,
+      why:`.env files, keys or the Keychain. Anything an agent reads lands in its log on this machine.`,
       todo:[`Add a deny rule for reading .env files in Claude Code settings, and load secrets through a script instead.`]});
   }
 
