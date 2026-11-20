@@ -35,7 +35,7 @@ def main(argv=None) -> int:
     r.add_argument("--raw", action="store_true", help="with --json: skip redaction (secrets included; keep it local)")
     r.add_argument("--claude-dir", type=Path)
     r.add_argument("--codex-dir", type=Path)
-    v = sub.add_parser("serve", help="live dashboard at http://localhost:4747 (this Mac only)")
+    v = sub.add_parser("serve", help="live dashboard at http://localhost:4747 (this machine only)")
     v.add_argument("--port", type=int, default=4747)
     v.add_argument("--open", action="store_true", help="open it in the browser")
     v.add_argument("--install", action="store_true", help="keep it running, starting at login (launchd, macOS only)")

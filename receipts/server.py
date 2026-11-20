@@ -1,7 +1,7 @@
 """The live dashboard: python3 -m receipts serve -> http://localhost:4747
 
 Reads the logs on request and keeps what it read in memory, so a refresh only
-re-reads the logs that changed. Listens on this Mac only. The session data is
+re-reads the logs that changed. Listens on this machine only. The session data is
 served as JSON to the page's own origin; requests from other sites, or for a
 host name other than localhost, are refused (a web page you visit could
 otherwise try to read your receipts from localhost).
@@ -209,7 +209,7 @@ def serve(port: int = PORT, open_browser: bool = False, **roots) -> int:
     store = Store(**roots)
     srv = make_server(store, port)
     url = f"http://localhost:{port}"
-    print(f"Session receipts at {url} (this Mac only). Ctrl-C to stop.", flush=True)
+    print(f"Session receipts at {url} (this machine only). Ctrl-C to stop.", flush=True)
     threading.Thread(target=store.refresh, daemon=True).start()  # warm up while the browser opens
     if open_browser:
         import webbrowser
