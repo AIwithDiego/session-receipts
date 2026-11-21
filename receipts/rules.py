@@ -243,38 +243,64 @@ def _command_hit(r: Rule, text: str) -> bool:
 
 def _secret_output(text: str) -> bool:
     """Follow quoted shell code and substitutions whose output is printed."""
-    captures = []
+    captures: list[re.Match[str]] = []
+    masked_parts = []
+    previous_end = 0
     for captured in CAPTURED.finditer(text):
-        prefix = text[:captured.start()]
-        escapes = len(prefix) - len(prefix.rstrip("\\"))
-        if escapes % 2 == 0:
+        start, end = captured.span()
+        escape_start = start
+        while escape_start > 0 and text[escape_start - 1] == "\\":
+            escape_start -= 1
+        if (start - escape_start) % 2 == 0:
             captures.append(captured)
+            # Preserve offsets while hiding separators inside the substitution.
+            masked_parts.extend((text[previous_end:start], "$X".ljust(end - start)))
+            previous_end = end
+
+    capture_index = 0
+    separators = STATEMENTS.finditer(text)
+    separator = next(separators, None)
+    harmless_start = -1
     for quoted in QUOTED.finditer(text):
         if quoted.group(0).startswith("\\"):
             continue
         # A shell inside an assignment's $(...) still has its output captured.
-        if any(c.start() <= quoted.start() < c.end() for c in captures):
+        while capture_index < len(captures) and captures[capture_index].end() <= quoted.start():
+            capture_index += 1
+        if capture_index < len(captures) and captures[capture_index].start() <= quoted.start():
             continue
-        if RUNS_QUOTED.search(text[max(0, quoted.start() - 120):quoted.start()]):
-            following = STATEMENTS.split(text[quoted.end():], maxsplit=1)[0]
-            if HARMLESS.search(following):
-                continue
-            if _secret_output(plain_command(quoted.group(0)[1:-1])):
-                return True
+        if not RUNS_QUOTED.search(text[max(0, quoted.start() - 120):quoted.start()]):
+            continue
+        if not _secret_output(plain_command(text[quoted.start() + 1:quoted.end() - 1])):
+            continue
 
-    # Keep offsets so each substitution can be associated with its outer statement.
-    starts = {c.start() for c in captures}
-    masked = CAPTURED.sub(lambda m: "$X".ljust(len(m.group(0))) if m.start() in starts else m.group(0), text)
+        # Reuse the next statement boundary and any filter found after the quote.
+        while separator is not None and separator.start() < quoted.end():
+            separator = next(separators, None)
+            harmless_start = -1
+        if harmless_start < quoted.end():
+            end = separator.start() if separator is not None else len(text)
+            harmless = HARMLESS.search(text, quoted.end(), end)
+            if harmless is None:
+                return True
+            harmless_start = harmless.start()
+
+    masked_parts.append(text[previous_end:])
+    masked = "".join(masked_parts)
+    capture_index = 0
     start = 0
     boundaries = [(m.start(), m.end()) for m in STATEMENTS.finditer(masked)]
-    for end, next_start in boundaries + [(len(masked), len(masked))]:
+    boundaries.append((len(masked), len(masked)))
+    for end, next_start in boundaries:
         statement = masked[start:end]
         if _prints_secret(statement):
             return True
-        if PRINT_ARGUMENTS.search(statement) and not HARMLESS.search(statement):
-            for captured in captures:
-                if start <= captured.start() < end and _secret_output(plain_command(captured.group(0)[2:-1])):
-                    return True
+        prints_arguments = PRINT_ARGUMENTS.search(statement) and not HARMLESS.search(statement)
+        while capture_index < len(captures) and captures[capture_index].start() < end:
+            captured = captures[capture_index]
+            capture_index += 1
+            if prints_arguments and _secret_output(plain_command(text[captured.start() + 2:captured.end() - 1])):
+                return True
         start = next_start
     return False
 

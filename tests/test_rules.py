@@ -5,6 +5,7 @@ import re
 import tempfile
 import unittest
 from pathlib import Path
+from time import perf_counter
 
 from receipts import dashboard, rules
 from receipts.model import Action, Prompt, Ref, Session
@@ -170,6 +171,35 @@ class TrialWeekNoise(unittest.TestCase):
                   r'echo "\$(cat .env)"', r'printf "%s" "\$(tail .env)"']:
             with self.subTest(command=c):
                 self.assertEqual(self.results(session(cmd(c, 1)))["Never print secret files"].status, "kept")
+
+    def test_secret_file_rule_ignores_heredoc_data_and_keeps_shell_code(self):
+        rule = "Never print secret files"
+        body = 'echo "$(cat .env)"'
+        for header, bodies in (
+            ("cat > setup.sh <<'EOF'", f"{body}\nEOF"),
+            ("cat > setup.sh <<'EOF' <<'END-SCRIPT'", f"notes\nEOF\n{body}\nEND-SCRIPT"),
+            ("cat > setup.sh <<-'END'", f"\tEND is still data\n\t{body}\n\tEND"),
+        ):
+            command = f"{header}\n{bodies}"
+            with self.subTest(header=header):
+                self.assertEqual(self.results(session(cmd(command, 1)))[rule].status, "kept")
+                self.assertEqual(self.results(session(cmd(f"{command}\n{body}", 1)))[rule].status, "broken")
+        executable = f"bash <<'EOF'\n{body}\nEOF"
+        self.assertEqual(self.results(session(cmd(executable, 1)))[rule].status, "broken")
+
+    def test_long_commands_with_quotes_and_captures_are_fast(self):
+        rule = self.results(session())["Never print secret files"].rule
+        for fragment in (
+            'bash -c "x" ',
+            'value=$(echo ok); echo ready; ',
+            'value=$(echo ok); echo "$(printf ready)"; ',
+        ):
+            command = fragment * (100_000 // len(fragment) + 1)
+            with self.subTest(fragment=fragment):
+                started = perf_counter()
+                result = rules.check(session(cmd(command, 1)), [rule])[0]
+                self.assertEqual(result.status, "kept")
+                self.assertLess(perf_counter() - started, 1.0)
 
     def test_release_review_bypasses_are_caught(self):
         env = "." + "env"

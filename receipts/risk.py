@@ -36,7 +36,6 @@ SECRET_PATH = re.compile(
     re.I,
 )
 PERMISSIONS_OFF = ("bypassPermissions", "danger-full-access", "approval never")
-HEREDOC = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?[^\n]*\n.*?\n\s*\1\b", re.S)
 
 
 def checks_off(s: Session) -> bool:
@@ -48,19 +47,70 @@ def checks_off(s: Session) -> bool:
 RUNS_HEREDOC = re.compile(r"(^|[|;&(]|&&|\|\|)\s*(sudo\s+)?(env\s+\S+=\S*\s+)*((ba|z|da|k)?sh|ssh|eval)\b[^|;&\n]*$")
 
 
+def _heredoc_end(cmd: str, pos: int, marker: str, strip_tabs: bool) -> int:
+    while pos < len(cmd):
+        newline = cmd.find("\n", pos)
+        end = len(cmd) if newline < 0 else newline
+        line = cmd[pos:end].removesuffix("\r")
+        if strip_tabs:
+            line = line.lstrip("\t")
+        pos = min(end + 1, len(cmd))
+        if line == marker:
+            break
+    return pos
+
+
 def command_text(cmd: str) -> str:
     """The command without heredoc bodies fed in as data (a commit message, a file).
     A heredoc fed to bash, sh, zsh or ssh runs, so it stays."""
-    def keep_or_drop(m: re.Match) -> str:
-        line = cmd[cmd.rfind("\n", 0, m.start()) + 1:m.start()]
-        return m.group(0) if RUNS_HEREDOC.search(line) else "<<heredoc"
-    return HEREDOC.sub(keep_or_drop, cmd)
+    if "<<" not in cmd or "\n" not in cmd:
+        return cmd
+    parts = []
+    cursor = 0
+    pos = 0
+    while token := HEREDOC_TOKEN.search(cmd, pos):
+        pos = token.end()
+        if token.lastgroup is None:
+            continue
+        line_end = cmd.find("\n", pos)
+        if line_end < 0:
+            break
+        line_start = cmd.rfind("\n", 0, token.start()) + 1
+        pending = []
+        # Bodies follow the entire header, in the order of its redirects.
+        for redirect in HEREDOC_TOKEN.finditer(cmd, token.start(), line_end):
+            if redirect.lastgroup is None:
+                continue
+            runs = bool(RUNS_HEREDOC.search(cmd[line_start:redirect.start()]))
+            pending.append((redirect[redirect.lastgroup], bool(redirect["tabs"]), runs))
+            if not runs:
+                parts.extend((cmd[cursor:redirect.start()], "<<heredoc"))
+                cursor = redirect.end()
+        parts.append(cmd[cursor:line_end + 1])
+        cursor = line_end + 1
+        kept_body = False
+        for marker, strip_tabs, runs in pending:
+            end = _heredoc_end(cmd, cursor, marker, strip_tabs)
+            if runs and end > cursor:
+                parts.append(cmd[cursor:end])
+                kept_body = True
+            cursor = end
+        if cursor == len(cmd) and not kept_body and not cmd.endswith("\n"):
+            parts[-1] = parts[-1].removesuffix("\n").removesuffix("\r")
+        pos = cursor
+    parts.append(cmd[cursor:])
+    return "".join(parts)
 
 
 # Quoted text with a space inside is data (a commit message, a search pattern, inline code),
 # unless a shell runs it. 'main' alone stays: it can be a real argument.
 # \x is one escaped character, not a quote: 'don'\''t' must not throw off the pairing.
 QUOTED = re.compile(r"\\.|'[^']*'|\"(?:[^\"\\]|\\.)*\"")
+HEREDOC_TOKEN = re.compile(
+    QUOTED.pattern + r"|(?<![^\s;|&])#[^\n]*|(?<!<)<<(?P<tabs>-)?(?!<)[ \t]*"
+    r"(?:'(?P<single>[^'\r\n]+)'|\"(?P<double>[^\"\r\n]+)\"|\\?(?P<word>[\w.-]+))"
+    r"(?![^\s;|&<>()])"
+)
 RUNS_QUOTED = re.compile(r"(\b((ba|z|da|k|fi)?sh|su)\s+(-\w+\s+)*-\w*c|\beval|\bwatch\b(\s+-\S+(\s+\S+)?)*|\bssh\b(\s+-\S+(\s+\S+)?)*\s+\S+(\s+--)?)\s*$")
 PIPED_TO_SHELL = re.compile(r"\|\s*(sudo\s+)?(\S*/)?((ba|z|da|k)?sh|eval)\b")
 SECRET_TAIL = re.compile(r"/(\.env(\.[\w.-]+)?|id_(rsa|ed25519)|[\w.-]+\.(pem|p12)|credentials(\.json)?|\.npmrc|\.netrc)[\"']$")
