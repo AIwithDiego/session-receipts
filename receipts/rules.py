@@ -26,7 +26,7 @@ from pathlib import Path
 
 from .model import Prompt, Ref, Session
 from .redact import SHAPES, clip
-from .risk import FORCE, GIT_PUSH, TO_MAIN, command_text, plain_command
+from .risk import FORCE, GIT_PUSH, QUOTED, RUNS_QUOTED, TO_MAIN, command_text, plain_command
 from . import verdicts as verdicts_mod
 
 EXAMPLE = Path(__file__).parent / "assets" / "rules.example.md"
@@ -49,6 +49,7 @@ HARMLESS = re.compile(
 EDITS_IN_PLACE = re.compile(r"^\s*(sudo\s+)?sed\s+(-\S+\s+)*-i")
 # $(...) captures output into a variable: loaded, not shown.
 CAPTURED = re.compile(r"\$\((?:[^()]|\([^()]*\))*\)")
+PRINT_ARGUMENTS = re.compile(r"^\s*(sudo\s+)?(echo|printf)\b")
 STATEMENTS = re.compile(r"\|\||&&|;|\n")
 WRITES = re.compile(r"^\s*cat\s*>")
 # Only the secret shapes that can't be mistaken for something else (not NAME=value guesses).
@@ -232,11 +233,75 @@ def _command_hit(r: Rule, text: str) -> bool:
     if r.kind == "force-push":
         return bool(FORCE_PUSH.search(text))
     if r.kind == "secret-files":
-        return any(_prints_secret(st) for st in STATEMENTS.split(CAPTURED.sub("$X", text)))
+        return _secret_output(text)
     if r.kind == "secrets":
         return any(not NOT_SECRET.search(m.group(0)) for p in SECRET_SHAPES for m in p.finditer(text))
     if r.kind == "command":
         return bool(r._rx.search(text))
+    return False
+
+
+def _secret_output(text: str) -> bool:
+    """Follow quoted shell code and substitutions whose output is printed."""
+    captures: list[re.Match[str]] = []
+    masked_parts = []
+    previous_end = 0
+    for captured in CAPTURED.finditer(text):
+        start, end = captured.span()
+        escape_start = start
+        while escape_start > 0 and text[escape_start - 1] == "\\":
+            escape_start -= 1
+        if (start - escape_start) % 2 == 0:
+            captures.append(captured)
+            # Preserve offsets while hiding separators inside the substitution.
+            masked_parts.extend((text[previous_end:start], "$X".ljust(end - start)))
+            previous_end = end
+
+    capture_index = 0
+    separators = STATEMENTS.finditer(text)
+    separator = next(separators, None)
+    harmless_start = -1
+    for quoted in QUOTED.finditer(text):
+        if quoted.group(0).startswith("\\"):
+            continue
+        # A shell inside an assignment's $(...) still has its output captured.
+        while capture_index < len(captures) and captures[capture_index].end() <= quoted.start():
+            capture_index += 1
+        if capture_index < len(captures) and captures[capture_index].start() <= quoted.start():
+            continue
+        if not RUNS_QUOTED.search(text[max(0, quoted.start() - 120):quoted.start()]):
+            continue
+        if not _secret_output(plain_command(text[quoted.start() + 1:quoted.end() - 1])):
+            continue
+
+        # Reuse the next statement boundary and any filter found after the quote.
+        while separator is not None and separator.start() < quoted.end():
+            separator = next(separators, None)
+            harmless_start = -1
+        if harmless_start < quoted.end():
+            end = separator.start() if separator is not None else len(text)
+            harmless = HARMLESS.search(text, quoted.end(), end)
+            if harmless is None:
+                return True
+            harmless_start = harmless.start()
+
+    masked_parts.append(text[previous_end:])
+    masked = "".join(masked_parts)
+    capture_index = 0
+    start = 0
+    boundaries = [(m.start(), m.end()) for m in STATEMENTS.finditer(masked)]
+    boundaries.append((len(masked), len(masked)))
+    for end, next_start in boundaries:
+        statement = masked[start:end]
+        if _prints_secret(statement):
+            return True
+        prints_arguments = PRINT_ARGUMENTS.search(statement) and not HARMLESS.search(statement)
+        while capture_index < len(captures) and captures[capture_index].start() < end:
+            captured = captures[capture_index]
+            capture_index += 1
+            if prints_arguments and _secret_output(plain_command(text[captured.start() + 2:captured.end() - 1])):
+                return True
+        start = next_start
     return False
 
 
