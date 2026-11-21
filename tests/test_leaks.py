@@ -9,6 +9,7 @@ import contextlib
 import gzip
 import io
 import json
+import os
 import stat
 import tempfile
 import unittest
@@ -140,7 +141,7 @@ class Leaks(unittest.TestCase):
 
     def test_the_logs_do_hold_the_secrets(self):
         # Guard against a test that passes because nothing was planted.
-        raw = "".join(p.read_text() for p in [*self.claude.rglob("*.jsonl"), *self.codex.rglob("*.jsonl")])
+        raw = "".join(p.read_text(encoding="utf-8") for p in [*self.claude.rglob("*.jsonl"), *self.codex.rglob("*.jsonl")])
         raw = raw.replace("\\n", "\n")
         self.assertEqual([s[:12] for s in EVERY if s not in raw], [])
         sessions = read_sessions(Window.everything(), ("claude-code", "codex"), self.claude, self.codex)
@@ -162,9 +163,10 @@ class Leaks(unittest.TestCase):
         files = [p for p in out.rglob("*") if p.is_file()]
         self.assertTrue(any(p.suffix == ".gz" for p in files), "nothing was archived")
         for p in files:
-            text = gzip.decompress(p.read_bytes()).decode() if p.suffix == ".gz" else p.read_text()
+            text = gzip.decompress(p.read_bytes()).decode() if p.suffix == ".gz" else p.read_text(encoding="utf-8")
             self.assertClean(str(p.relative_to(out)), text)
 
+    @unittest.skipIf(os.name == "nt", "Windows ignores POSIX file modes")
     def test_files_are_private(self):
         out = self.out / "perms"
         dashboard.build(read_sessions(Window.everything(), ("claude-code", "codex"), self.claude, self.codex), out)
@@ -246,7 +248,7 @@ class Leaks(unittest.TestCase):
             cli.main(["forget", "--before", "2026-10-01", "--dir", str(home)])
         left, _ = archive.load(home / "archive")
         self.assertEqual(sorted(left), ["a2"])
-        self.assertEqual(json.loads((home / "verdicts.json").read_text()), {})
+        self.assertEqual(json.loads((home / "verdicts.json").read_text(encoding="utf-8")), {})
 
 
     def test_quick_skip_never_hides_a_secret(self):

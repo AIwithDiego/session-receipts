@@ -2,6 +2,7 @@
 
 import gzip
 import json
+import os
 import re
 import shutil
 import tempfile
@@ -107,13 +108,13 @@ class Build(unittest.TestCase):
         s.actions.append(cmd("export GITHUB_TOKEN=" + FAKE["github"] + " </script><script>alert(1)</script>"))
         with tempfile.TemporaryDirectory() as tmp:
             page = dashboard.build(sessions, Path(tmp))
-            html = page.read_text()
+            html = page.read_text(encoding="utf-8")
             self.assertNotRegex(html, r"https?://(?!www\.w3\.org)")  # no network loads
-            everything = "".join(p.read_text() for p in Path(tmp).rglob("*.js"))
+            everything = "".join(p.read_text(encoding="utf-8") for p in Path(tmp).rglob("*.js"))
             for secret in FAKE.values():
                 self.assertNotIn(secret[8:30], everything)
             self.assertNotIn("</script>", everything)  # cannot break out of the data script
-            data = json.loads(re.match(r"window.RECEIPTS=(.*);$", (Path(tmp) / "data.js").read_text(), re.S).group(1))
+            data = json.loads(re.match(r"window.RECEIPTS=(.*);$", (Path(tmp) / "data.js").read_text(encoding="utf-8"), re.S).group(1))
             self.assertEqual(len(data["sessions"]), len(sessions))
             row = next(r for r in data["sessions"] if r["tool"] == "claude-code")
             self.assertEqual(row["blocked"], 2)
@@ -123,11 +124,12 @@ class Build(unittest.TestCase):
             # weighted: 60 in + 120 cache write * 1.25 + 600 cache read * 0.1 + 30 out * 5
             self.assertEqual(row["w"], 60 + 150 + 60 + 150)
             self.assertTrue((Path(tmp) / "s" / f"{row['id']}.js").exists())
-            self.assertEqual(oct(Path(tmp).stat().st_mode)[-3:], "700")
+            if os.name != "nt":  # Windows ignores POSIX file modes
+                self.assertEqual(oct(Path(tmp).stat().st_mode)[-3:], "700")
 
 
 def load_data(out: Path) -> dict:
-    return json.loads(re.match(r"window.RECEIPTS=(.*);$", (out / "data.js").read_text(), re.S).group(1))
+    return json.loads(re.match(r"window.RECEIPTS=(.*);$", (out / "data.js").read_text(encoding="utf-8"), re.S).group(1))
 
 
 class Archive(unittest.TestCase):
@@ -151,7 +153,8 @@ class Archive(unittest.TestCase):
         dashboard.build(first, self.out)
         files = list((self.out / "archive").rglob("*.json.gz"))
         self.assertEqual(len(files), len(first))
-        self.assertTrue(all(oct(f.stat().st_mode)[-3:] == "600" for f in files))
+        if os.name != "nt":  # Windows ignores POSIX file modes
+            self.assertTrue(all(oct(f.stat().st_mode)[-3:] == "600" for f in files))
 
         shutil.rmtree(self.logs)  # Claude Code's cleanup
         self.assertEqual(self.read(), [])
@@ -199,7 +202,7 @@ class Archive(unittest.TestCase):
             json.dump(e, fh)
         shutil.rmtree(self.logs)
         dashboard.build([], self.out)
-        self.assertNotIn(FAKE["stripe"][8:], (self.out / "data.js").read_text())
+        self.assertNotIn(FAKE["stripe"][8:], (self.out / "data.js").read_text(encoding="utf-8"))
 
     def test_unreadable_file_is_skipped(self):
         dashboard.build(self.read(), self.out)

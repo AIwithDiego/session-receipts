@@ -3,7 +3,7 @@ python3 -m receipts dashboard [--days N] [--open]
 python3 -m receipts read [today|yesterday|week|YYYY-MM-DD] [--json [--raw]]
 python3 -m receipts judge [today|yesterday|week|YYYY-MM-DD|all] [--session ID] [--again]
 python3 -m receipts verdict SESSION RULE kept|broken --why "..." [--ref log.jsonl:123]
-python3 -m receipts verdict --batch verdicts.json   (or - for stdin)
+python3 -m receipts verdict --batch verdicts.json [--delete]   (or - for stdin)
 python3 -m receipts forget [SESSION ...] [--before YYYY-MM-DD]
 python3 -m receipts status"""
 
@@ -21,6 +21,11 @@ from .window import Window, parse_ts
 
 
 def main(argv=None) -> int:
+    # Windows uses the locale code page (often cp1252) for piped stdin and stdout, which can't hold
+    # every character in a log. Use UTF-8 everywhere.
+    for stream, errors in ((sys.stdout, "replace"), (sys.stdin, "strict")):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors=errors)
     ap = argparse.ArgumentParser(prog="receipts")
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("read", help="read one day of sessions into the common shape")
@@ -33,7 +38,7 @@ def main(argv=None) -> int:
     v = sub.add_parser("serve", help="live dashboard at http://localhost:4747 (this Mac only)")
     v.add_argument("--port", type=int, default=4747)
     v.add_argument("--open", action="store_true", help="open it in the browser")
-    v.add_argument("--install", action="store_true", help="keep it running, starting at login (launchd)")
+    v.add_argument("--install", action="store_true", help="keep it running, starting at login (launchd, macOS only)")
     v.add_argument("--uninstall", action="store_true", help="stop it and remove the login item")
     v.add_argument("--claude-dir", type=Path)
     v.add_argument("--codex-dir", type=Path)
@@ -61,6 +66,8 @@ def main(argv=None) -> int:
     d.add_argument("--why", default="", help="one plain sentence a person can check against the log line")
     d.add_argument("--ref", default="", help="the log line that shows it: path/to/log.jsonl:123")
     d.add_argument("--batch", help="a JSON list of {session, rule, status, why, ref}; - reads stdin")
+    d.add_argument("--delete", action="store_true",
+                   help="with --batch verdict-batch.json in the receipts folder: delete it once read, also when a verdict is refused")
     d.add_argument("--dir", type=Path, help="where verdicts.json lives (default ~/.session-receipts)")
     st = sub.add_parser("status", help="is the live dashboard running, and where things are")
     st.add_argument("--port", type=int, default=4747)
@@ -117,8 +124,8 @@ def main(argv=None) -> int:
 
 
 def dashboard(a) -> int:
-    import subprocess
     import time
+    import webbrowser
 
     from . import dashboard as dash
 
@@ -137,7 +144,7 @@ def dashboard(a) -> int:
     warn = f"  ({info['unreadable']} archive file(s) unreadable, skipped)" if info["unreadable"] else ""
     print(f"{info['live']} sessions{extra} -> {page}  ({time.time() - t0:.1f}s){warn}")
     if a.open:
-        subprocess.run(["open", str(page)], check=False)
+        webbrowser.open(Path(page).resolve().as_uri())
     return 0
 
 
