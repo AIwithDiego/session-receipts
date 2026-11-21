@@ -30,6 +30,13 @@ DESTRUCTIVE = re.compile(
     re.I,
 )
 PIPE_TO_SHELL = re.compile(r"\b(curl|wget)\b[^|]*\|\s*(sudo\s+)?(ba|z)?sh\b")
+# A shell path ends at the next shell separator or quoted argument. Otherwise
+# searches restart at each separator and repeatedly scan the same suffix.
+SHELL_PATH_PREFIX = r"(?:[^\s|;&()<>'\"`\\]*/)?"
+DOWNLOAD_TO_SHELL = re.compile(
+    r"(?:^|[|;&(\n])[^\S\n]*(?:sudo\s+)?" + SHELL_PATH_PREFIX
+    + r"(?:ba|z|da|k)?sh\s+(?:-\w+\s+)*-\w*c\s+['\"]?\$\(\s*(?:curl|wget)\b[^)]*\)"
+)
 SECRET_PATH = re.compile(
     r"(^|[/\s'\"=])\.env(\.[\w.-]+)?($|[\s'\";|&)])|id_(rsa|ed25519)\b|\.pem\b|\.p12\b|credentials(\.json)?\b|\.npmrc\b|\.netrc\b"
     r"|security\s+find-(generic|internet)-password|\.claude/\.env",
@@ -62,7 +69,7 @@ def command_text(cmd: str) -> str:
 # \x is one escaped character, not a quote: 'don'\''t' must not throw off the pairing.
 QUOTED = re.compile(r"\\.|'[^']*'|\"(?:[^\"\\]|\\.)*\"")
 RUNS_QUOTED = re.compile(r"(\b((ba|z|da|k|fi)?sh|su)\s+(-\w+\s+)*-\w*c|\beval|\bwatch\b(\s+-\S+(\s+\S+)?)*|\bssh\b(\s+-\S+(\s+\S+)?)*\s+\S+(\s+--)?)\s*$")
-PIPED_TO_SHELL = re.compile(r"\|\s*(sudo\s+)?(\S*/)?((ba|z|da|k)?sh|eval)\b")
+PIPED_TO_SHELL = re.compile(r"\|\s*(?:sudo\s+)?" + SHELL_PATH_PREFIX + r"(?:(?:ba|z|da|k)?sh|eval)\b")
 SECRET_TAIL = re.compile(r"/(\.env(\.[\w.-]+)?|id_(rsa|ed25519)|[\w.-]+\.(pem|p12)|credentials(\.json)?|\.npmrc|\.netrc)[\"']$")
 
 
@@ -96,13 +103,14 @@ def risks(s: Session) -> list[Risk]:
             continue
         text = command_text(a.detail) if a.kind == "command" else a.detail
         if a.kind == "command":
-            if PUSH_PROTECTED.search(plain_command(a.detail)):
+            plain = plain_command(a.detail)
+            if PUSH_PROTECTED.search(plain):
                 out.append(Risk(a.at, CRITICAL, "Push to main or force push", a.detail, a.ref))
-            elif PUSH.search(plain_command(a.detail)):
+            elif PUSH.search(plain):
                 out.append(Risk(a.at, WARNING, "git push", a.detail, a.ref))
             if DESTRUCTIVE.search(text):
                 out.append(Risk(a.at, CRITICAL, "Destructive command", a.detail, a.ref))
-            if PIPE_TO_SHELL.search(text):
+            if PIPE_TO_SHELL.search(text) or DOWNLOAD_TO_SHELL.search(plain):
                 out.append(Risk(a.at, SERIOUS, "Downloaded script piped to shell", a.detail, a.ref))
         if a.kind in ("command", "read", "edit") and SECRET_PATH.search(text):
             out.append(Risk(a.at, SERIOUS, "Secret file touched", a.detail, a.ref))
