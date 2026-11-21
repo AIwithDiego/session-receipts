@@ -53,6 +53,16 @@ class Parse(unittest.TestCase):
         self.assertEqual(src, rules.EXAMPLE)
         self.assertTrue(any(r.proven for r in rs))
 
+    def test_bom_and_utf16_files_are_read(self):
+        # Notepad can add a BOM; `>` in Windows PowerShell 5.1 writes UTF-16. Both used to give zero rules.
+        want = [r.text for r in rules.parse(RULES)]
+        for encoding in ("utf-8-sig", "utf-16"):
+            with tempfile.TemporaryDirectory() as tmp:
+                p = Path(tmp) / "rules.md"
+                p.write_bytes(RULES.encode(encoding))
+                rs, _ = rules.load(p)
+                self.assertEqual([r.text for r in rs], want, encoding)
+
 
 class Check(unittest.TestCase):
     rules = rules.parse(RULES)
@@ -199,14 +209,14 @@ class OnTheReceipt(unittest.TestCase):
             s = session(cmd("git push origin main", 7), cmd(f"echo {KEY} | pbcopy", 8))
             s.started = s.ended = "2026-11-05T10:00:00+00:00"
             dashboard.build([s], out)
-            data = json.loads(re.match(r"window.RECEIPTS=(.*);$", (out / "data.js").read_text(), re.S).group(1))
+            data = json.loads(re.match(r"window.RECEIPTS=(.*);$", (out / "data.js").read_text(encoding="utf-8"), re.S).group(1))
             ids = {r["text"]: r["id"] for r in data["rules"]["list"]}
             row = data["sessions"][0]
             self.assertIn(ids["Never push to main"], row["broken"])
             self.assertIn(ids["Don't touch the clipboard"], row["broken"])
-            receipt = (out / "s" / "s.js").read_text()
+            receipt = (out / "s" / "s.js").read_text(encoding="utf-8")
             self.assertIn('"line":7', receipt)
-            self.assertNotIn(KEY[4:], receipt + (out / "data.js").read_text())
+            self.assertNotIn(KEY[4:], receipt + (out / "data.js").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

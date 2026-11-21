@@ -61,7 +61,7 @@ class Judge(unittest.TestCase):
         code, out, err = self.run_cli("verdict", "--batch", "-", "--dir", str(self.home), stdin=batch)
         self.assertEqual(code, 0, err)
 
-        stored = (self.home / "verdicts.json").read_text()
+        stored = (self.home / "verdicts.json").read_text(encoding="utf-8")
         self.assertNotIn(FAKE_KEY, stored)
 
         self.assertNotIn("s1", [s["session"] for s in self.judge()["sessions"]])
@@ -69,13 +69,13 @@ class Judge(unittest.TestCase):
 
         sessions = read_sessions(Window.everything(), ("claude-code", "codex"), self.logs / "claude", self.logs / "codex")
         dashboard.build(sessions, self.home)
-        detail = (self.home / "s" / "s1.js").read_text()
+        detail = (self.home / "s" / "s1.js").read_text(encoding="utf-8")
         res = json.loads(detail[detail.index(",") + 1: detail.rindex(")")])
         rule = next(r for r in res["rules"] if r["id"] == rid)
         self.assertEqual(rule["status"], "broken")
         self.assertTrue(rule["why"].startswith("Edited app.py without asking"))
         self.assertEqual(f"{rule['hits'][0]['ref']['file']}:{rule['hits'][0]['ref']['line']}", ref)
-        data = (self.home / "data.js").read_text()
+        data = (self.home / "data.js").read_text(encoding="utf-8")
         self.assertIn(rid, json.loads(data[len("window.RECEIPTS="):-1])["sessions"][-2]["broken"]
                       + json.loads(data[len("window.RECEIPTS="):-1])["sessions"][-1]["broken"])
 
@@ -87,6 +87,30 @@ class Judge(unittest.TestCase):
         self.run_cli("verdict", "s1", rid, "kept", "--why", "Asked what done looks like first.", "--dir", str(self.home))
         store.refresh(force=True)
         self.assertEqual(next(r for r in store.detail("s1")["rules"] if r["id"] == rid)["status"], "kept")
+
+    def test_piped_batch_may_start_with_a_bom(self):
+        # Windows PowerShell 5.1 puts a BOM first when it pipes text.
+        code, out, err = self.run_cli("verdict", "--batch", "-", "--dir", str(self.home), stdin="\ufeff[]")
+        self.assertEqual(code, 0, err)
+
+    def test_delete_removes_the_batch_file_whatever_happens(self):
+        rid = self.judge()["rules"][0]["id"]
+        good = json.dumps([{"session": "s1", "rule": rid, "status": "kept", "why": "Asked first."}])
+        bad = json.dumps([{"session": "s1", "rule": rid, "status": "maybe", "why": f"key {FAKE_KEY}"}])
+        f = self.home / "verdict-batch.json"
+        for text, want in ((good, 0), (bad, 2), ("not json " + FAKE_KEY, 2)):
+            f.write_text(text, encoding="utf-8")
+            code, _, err = self.run_cli("verdict", "--batch", str(f), "--delete", "--dir", str(self.home))
+            self.assertEqual(code, want, err)
+            self.assertFalse(f.exists(), text[:20])
+        f.write_text(good, encoding="utf-8")  # without --delete the file is the user's and stays
+        self.assertEqual(self.run_cli("verdict", "--batch", str(f), "--dir", str(self.home))[0], 0)
+        self.assertTrue(f.exists())
+        self.assertEqual(self.run_cli("verdict", "--batch", "-", "--delete", "--dir", str(self.home), stdin="[]")[0], 0)
+        other = self.home / "other.json"  # --delete never removes any other file
+        other.write_text("[]", encoding="utf-8")
+        self.assertEqual(self.run_cli("verdict", "--batch", str(other), "--delete", "--dir", str(self.home))[0], 2)
+        self.assertTrue(other.exists())
 
     def test_bad_verdicts_are_refused_and_nothing_is_written(self):
         for batch in ('[{"session": "s1", "rule": "x", "status": "maybe", "why": "?"}]',
