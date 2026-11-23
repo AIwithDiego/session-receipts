@@ -1,5 +1,9 @@
 """Reader for Codex logs: ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl.
 
+Codex compresses older logs in place to rollout-*.jsonl.zst. Python 3.14 reads
+those from the standard library; on older Python each one shows as a session
+with a note, so the gap is visible instead of silent.
+
 Reads the `item_completed` events (Codex's own record of each finished step),
 not the raw model calls: those wrap shell commands inside JavaScript and change
 shape between versions. The format is undocumented, so anything unknown is
@@ -15,6 +19,13 @@ from .model import Action, Denial, Prompt, Ref, Session, Tokens
 from .redact import clip, tail
 from .window import Window, iso
 
+try:
+    from compression import zstd  # standard library from Python 3.14
+except ImportError:
+    zstd = None
+
+ZST_NOTE = "Compressed Codex log (.jsonl.zst) needs Python 3.14 or later: not read"
+
 DEFAULT_ROOT = Path.home() / ".codex" / "sessions"
 
 BLOCKED = {"declined", "rejected", "denied", "aborted_by_user"}
@@ -24,17 +35,29 @@ def find_logs(window: Window, root: Path = DEFAULT_ROOT) -> list[Path]:
     if not root.is_dir():
         return []
     since = window.start_epoch
-    return sorted(p for p in root.glob("*/*/*/*.jsonl") if p.stat().st_mtime >= since)
+    plain = {p for p in root.glob("*/*/*/*.jsonl")}
+    packed = {p for p in root.glob("*/*/*/*.jsonl.zst") if p.with_suffix("") not in plain}
+    return sorted(p for p in plain | packed if p.stat().st_mtime >= since)
+
+
+def _open(path: Path):
+    if path.suffix == ".zst":
+        return zstd.open(path, "rt", encoding="utf-8", errors="replace")
+    return open(path, encoding="utf-8", errors="replace")
 
 
 def read_session(path: Path, window: Window) -> Session:
-    s = Session(tool="codex", id=path.stem, cwd="", log=str(path))
+    s = Session(tool="codex", id=path.name.removesuffix(".zst").removesuffix(".jsonl"), cwd="", log=str(path))
+    if path.suffix == ".zst" and zstd is None:
+        s.started = s.ended = iso(path.stat().st_mtime)  # when the file was last written: the best date there is
+        s.notes.append(ZST_NOTE)
+        return s
     seen_responses: set[str] = set()
     items = 0
     bad_lines = 0
     unknown: set[str] = set()
 
-    with open(path, encoding="utf-8", errors="replace") as fh:
+    with _open(path) as fh:
         for n, line in enumerate(fh, 1):
             try:
                 d = json.loads(line)
@@ -151,7 +174,7 @@ def _command(cmd) -> str:
 
 
 def _first_ts(path: Path):
-    with open(path, encoding="utf-8", errors="replace") as fh:
+    with _open(path) as fh:
         for line in fh:
             try:
                 return json.loads(line).get("timestamp")
@@ -162,4 +185,4 @@ def _first_ts(path: Path):
 
 def read_all(window: Window, root: Path = DEFAULT_ROOT) -> list[Session]:
     sessions = (read_session(p, window) for p in find_logs(window, root))
-    return [s for s in sessions if not s.empty() or any("older" in n for n in s.notes)]
+    return [s for s in sessions if not s.empty() or any("not read" in n for n in s.notes)]
