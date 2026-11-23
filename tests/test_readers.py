@@ -1,5 +1,7 @@
 """Readers on synthetic logs. Real session logs never go in this repo."""
 
+import json
+import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -89,6 +91,18 @@ class CodexReader(unittest.TestCase):
         old = next(s for s in self.sessions.values() if s.id.endswith("old"))
         self.assertTrue(old.empty())
         self.assertTrue(any("older Codex log format" in n for n in old.notes))
+
+    def test_forked_session_keeps_its_own_id(self):
+        # A forked session's log also carries its parent's session_meta further down.
+        src = FIX / "codex" / "2026" / "11" / "05" / "rollout-2026-11-05T10-00-00-cx1.jsonl"
+        parent = json.dumps({"timestamp": "2026-11-05T10:00:00.000Z", "type": "session_meta",
+                             "payload": {"id": "parent", "cwd": "/Users/demo/other"}})
+        with tempfile.TemporaryDirectory() as tmp:
+            day = Path(tmp) / "2026" / "11" / "05"
+            day.mkdir(parents=True)
+            (day / src.name).write_text(src.read_text(encoding="utf-8") + parent + "\n", encoding="utf-8")
+            ss = codex.read_all(DAY, Path(tmp))
+        self.assertEqual([s.id for s in ss], ["cx1"])
 
 
 class BothTools(unittest.TestCase):

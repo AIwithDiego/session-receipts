@@ -33,6 +33,7 @@ def read_session(path: Path, window: Window) -> Session:
     items = 0
     bad_lines = 0
     unknown: set[str] = set()
+    meta_seen = False
 
     with open(path, encoding="utf-8", errors="replace") as fh:
         for n, line in enumerate(fh, 1):
@@ -48,7 +49,9 @@ def read_session(path: Path, window: Window) -> Session:
             ts = d.get("timestamp")
 
             if kind == "session_meta":
-                s.id = p.get("id") or s.id
+                if not meta_seen:  # a forked session also carries its parent's session_meta further down
+                    s.id = p.get("id") or s.id
+                    meta_seen = True
                 s.cwd = p.get("cwd") or s.cwd
                 continue
             if kind == "turn_context":
