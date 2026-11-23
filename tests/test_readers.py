@@ -1,6 +1,9 @@
 """Readers on synthetic logs. Real session logs never go in this repo."""
 
+import shutil
+import tempfile
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -89,6 +92,52 @@ class CodexReader(unittest.TestCase):
         old = next(s for s in self.sessions.values() if s.id.endswith("old"))
         self.assertTrue(old.empty())
         self.assertTrue(any("older Codex log format" in n for n in old.notes))
+
+
+def _compressed_copy(tmp: Path) -> Path:
+    """The Codex fixtures again, with every log compressed in place the way Codex does it."""
+    root = tmp / "codex"
+    shutil.copytree(FIX / "codex", root)
+    for p in list(root.rglob("*.jsonl")):
+        p.with_name(p.name + ".zst").write_bytes(codex.zstd.compress(p.read_bytes()))
+        p.unlink()
+    return root
+
+
+class CodexCompressed(unittest.TestCase):
+    """Codex compresses older logs to rollout-*.jsonl.zst. They must not vanish."""
+
+    @unittest.skipIf(codex.zstd is None, "needs Python 3.14 for compression.zstd")
+    def test_compressed_log_reads_the_same_as_plain(self):
+        plain = {s.id: s.to_dict() for s in codex.read_all(DAY, FIX / "codex")}
+        self.assertTrue(plain)
+        with tempfile.TemporaryDirectory() as tmp:
+            packed = {s.id: s.to_dict() for s in codex.read_all(DAY, _compressed_copy(Path(tmp)))}
+        for d in (*plain.values(), *packed.values()):
+            d.pop("log")
+            for x in (*d["prompts"], *d["actions"], *d["denials"]):
+                x["ref"] = x["ref"] and x["ref"]["line"]
+        self.assertEqual(packed, plain)
+
+    @unittest.skipIf(codex.zstd is None, "needs Python 3.14 for compression.zstd")
+    def test_plain_wins_when_both_exist(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = _compressed_copy(Path(tmp))
+            shutil.copytree(FIX / "codex", root, dirs_exist_ok=True)
+            logs = codex.find_logs(DAY, root)
+        self.assertTrue(logs)
+        self.assertEqual({p.suffix for p in logs}, {".jsonl"})
+
+    def test_without_zstd_each_compressed_log_shows_a_note(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "codex" / "2026" / "11" / "05"
+            root.mkdir(parents=True)
+            (root / "rollout-x.jsonl.zst").write_bytes(b"not read")
+            with mock.patch.object(codex, "zstd", None):
+                ss = codex.read_all(DAY, Path(tmp) / "codex")
+        self.assertEqual([s.id for s in ss], ["rollout-x"])
+        self.assertIn(codex.ZST_NOTE, ss[0].notes)
+        self.assertTrue(ss[0].started)
 
 
 class BothTools(unittest.TestCase):
